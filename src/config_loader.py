@@ -123,11 +123,12 @@ class ConfigLoader:
         """
         from .platform_registry import PlatformRegistry
 
-        registry = PlatformRegistry.get_instance()
+        # PlatformRegistry 使用 __new__ 实现单例，直接调用即可
+        registry = PlatformRegistry()
         results = {}
 
-        for platform, info in registry._platforms.items():
-            if not info.get('is_available', False):
+        for platform, config in registry._platforms.items():
+            if not config.is_available:
                 continue
 
             try:
