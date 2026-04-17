@@ -1,0 +1,159 @@
+{
+  "summary": {
+    "total": 7,
+    "success": 6,
+    "failed": 1,
+    "streaming_supported": 4,
+    "timestamp": "2026-04-18 02:43:54",
+    "ttft_min": 0.406416654586792,
+    "ttft_max": 1.7130780220031738,
+    "ttft_avg": 1.0702852606773376,
+    "ttft_median": 1.523517370223999,
+    "total_min": 0.6097061634063721,
+    "total_max": 16.01201057434082,
+    "total_avg": 4.728665550549825,
+    "total_median": 1.734367847442627,
+    "concurrency_min": 1,
+    "concurrency_max": 200,
+    "concurrency_avg": 36.333333333333336,
+    "top_by_efficiency": [
+      {
+        "model": "glm-4-flash-250414",
+        "efficiency_score": 116.75
+      },
+      {
+        "model": "glm-4v-flash",
+        "efficiency_score": 15.67
+      },
+      {
+        "model": "glm-4.1v-thinking-flash",
+        "efficiency_score": 12.3
+      },
+      {
+        "model": "glm-4.6v-flash",
+        "efficiency_score": 0.66
+      }
+    ]
+  },
+  "results": [
+    {
+      "model_id": "glm-4-flash-250414",
+      "platform": "zhipu",
+      "test_message": "回复 OK",
+      "timestamp": "2026-04-18 02:43:21",
+      "ttft": 1.7130780220031738,
+      "first_chunk": "OK",
+      "total_time": 1.734367847442627,
+      "full_response": "OK",
+      "tokens_used": null,
+      "error": null,
+      "error_type": null,
+      "concurrency": 200,
+      "is_free": true,
+      "category": "通用模型",
+      "tags": []
+    },
+    {
+      "model_id": "glm-4v-flash",
+      "platform": "zhipu",
+      "test_message": "回复 OK",
+      "timestamp": "2026-04-18 02:43:23",
+      "ttft": 0.6381289958953857,
+      "first_chunk": "好的",
+      "total_time": 0.6754457950592041,
+      "full_response": "好的，请问有什么我可以帮助您的吗？",
+      "tokens_used": null,
+      "error": null,
+      "error_type": null,
+      "concurrency": 10,
+      "is_free": true,
+      "category": "通用模型",
+      "tags": []
+    },
+    {
+      "model_id": "glm-4.7-flash",
+      "platform": "zhipu",
+      "test_message": "回复 OK",
+      "timestamp": "2026-04-18 02:43:23",
+      "ttft": null,
+      "first_chunk": null,
+      "total_time": 16.01201057434082,
+      "full_response": null,
+      "tokens_used": null,
+      "error": null,
+      "error_type": null,
+      "concurrency": 1,
+      "is_free": true,
+      "category": "通用模型",
+      "tags": []
+    },
+    {
+      "model_id": "glm-4.1v-thinking-flash",
+      "platform": "zhipu",
+      "test_message": "回复 OK",
+      "timestamp": "2026-04-18 02:43:39",
+      "ttft": 0.406416654586792,
+      "first_chunk": "<think>",
+      "total_time": 0.6097061634063721,
+      "full_response": "<think>用户现在需要回复“OK”，直接输出即可。需要简洁回应，所以回复OK。</think><answer>OK</answer>",
+      "tokens_used": null,
+      "error": null,
+      "error_type": null,
+      "concurrency": 5,
+      "is_free": true,
+      "category": "视觉推理",
+      "tags": []
+    },
+    {
+      "model_id": "cogview-3-flash",
+      "platform": "zhipu",
+      "test_message": "回复 OK",
+      "timestamp": "2026-04-18 02:43:40",
+      "ttft": null,
+      "first_chunk": null,
+      "total_time": 7.816945552825928,
+      "full_response": "",
+      "tokens_used": null,
+      "error": null,
+      "error_type": null,
+      "concurrency": 1,
+      "is_free": true,
+      "category": "图像生成",
+      "tags": []
+    },
+    {
+      "model_id": "cogvideox-flash",
+      "platform": "zhipu",
+      "test_message": "回复 OK",
+      "timestamp": "2026-04-18 02:43:48",
+      "ttft": null,
+      "first_chunk": null,
+      "total_time": 0.12604236602783203,
+      "full_response": null,
+      "tokens_used": null,
+      "error": "降级失败: Error code: 400 - {'error': {'code': '1212', 'message': '当前模型不支持SYNC调用方式。'}} (原始: Error code: 400 - {'error': {'code': '1212', 'message': '当前模型不支持SSE调用方式。'}})",
+      "error_type": "BadRequestError",
+      "concurrency": 3,
+      "is_free": true,
+      "category": "视频生成",
+      "tags": []
+    },
+    {
+      "model_id": "glm-4.6v-flash",
+      "platform": "zhipu",
+      "test_message": "回复 OK",
+      "timestamp": "2026-04-18 02:43:49",
+      "ttft": 1.523517370223999,
+      "first_chunk": "\n",
+      "total_time": 1.523517370223999,
+      "full_response": null,
+      "tokens_used": null,
+      "error": null,
+      "error_type": null,
+      "concurrency": 1,
+      "is_free": true,
+      "category": "视觉理解",
+      "tags": []
+    }
+  ]
+}

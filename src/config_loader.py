@@ -1,0 +1,170 @@
+"""
+统一配置加载器
+安全地加载 API keys 和其他配置
+"""
+
+import os
+from pathlib import Path
+from typing import Optional, Dict, Any
+from dotenv import load_dotenv
+
+
+class ConfigLoader:
+    """统一配置加载器"""
+
+    # 平台到环境变量的映射
+    ENV_VAR_MAP = {
+        'nvidia': 'NVIDIA_API_KEY',
+        'zhipu': 'ZHIPU_API_KEY',
+        'aliyun': 'DASHSCOPE_API_KEY',
+        'tencent': 'TENCENTCLOUD_SECRET_ID',  # 腾讯需要ID，key用另一个变量
+    }
+
+    @classmethod
+    def load_env(cls, env_file: Optional[str] = None) -> None:
+        """
+        加载环境变量文件
+
+        Args:
+            env_file: 指定 env 文件路径，如 '.env.local'
+                      如果为 None，自动查找 .env.local, .env, .env.development
+        """
+        if env_file:
+            if Path(env_file).exists():
+                load_dotenv(env_file, override=True)
+                print(f"✅ 已加载环境配置文件: {env_file}")
+            else:
+                print(f"⚠️  环境配置文件不存在: {env_file}")
+        else:
+            # 自动按优先级查找
+            for candidate in ['.env.local', '.env.development', '.env']:
+                if Path(candidate).exists():
+                    load_dotenv(candidate, override=True)
+                    print(f"✅ 已自动加载: {candidate}")
+                    break
+            else:
+                print("ℹ️  未找到 .env 文件，将使用系统环境变量")
+
+    @classmethod
+    def get_api_key(cls, platform: str) -> str:
+        """
+        获取指定平台的 API key
+
+        Args:
+            platform: 平台名称，如 'nvidia', 'zhipu', 'aliyun'
+
+        Returns:
+            API key 字符串
+
+        Raises:
+            ValueError: 如果未找到 API key
+        """
+        platform = platform.lower()
+
+        if platform not in cls.ENV_VAR_MAP:
+            available = ', '.join(cls.ENV_VAR_MAP.keys())
+            raise ValueError(
+                f"未知平台: {platform}\n"
+                f"可用平台: {available}"
+            )
+
+        env_var_name = cls.ENV_VAR_MAP[platform]
+        key = os.getenv(env_var_name)
+
+        if not key:
+            raise ValueError(
+                f"❌ 缺少 {platform} 的 API Key\n"
+                f"请设置环境变量: {env_var_name}\n"
+                f"或在 .env.local 文件中配置\n"
+                f"\n"
+                f"配置方法：\n"
+                f"  1. 复制 .env.example 为 .env.local\n"
+                f"  2. 编辑 .env.local 填入真实 {env_var_name}\n"
+                f"  3. 或直接在系统环境变量中设置"
+            )
+
+        return key
+
+    @classmethod
+    def get_platform_config(cls, platform: str) -> Dict[str, Any]:
+        """
+        获取平台的完整配置（包括 base_url 等）
+
+        Args:
+            platform: 平台名称
+
+        Returns:
+            配置字典，包含 api_key, base_url 等
+        """
+        from .platform_registry import PlatformRegistry
+
+        registry = PlatformRegistry.get_instance()
+        platform_info = registry.get_platform_info(platform)
+
+        if not platform_info:
+            raise ValueError(f"未知平台: {platform}")
+
+        config = {
+            'api_key': cls.get_api_key(platform),
+            'base_url': platform_info.get('default_base_url'),
+            'name': platform_info.get('name'),
+            'display_name': platform_info.get('display_name'),
+        }
+
+        return config
+
+    @classmethod
+    def validate_all(cls) -> Dict[str, bool]:
+        """
+        验证所有已启用平台的 API key 配置
+
+        Returns:
+            {平台: 是否配置成功} 的字典
+        """
+        from .platform_registry import PlatformRegistry
+
+        registry = PlatformRegistry.get_instance()
+        results = {}
+
+        for platform, info in registry._platforms.items():
+            if not info.get('is_available', False):
+                continue
+
+            try:
+                cls.get_api_key(platform)
+                results[platform] = True
+            except ValueError:
+                results[platform] = False
+
+        return results
+
+
+def load_config() -> ConfigLoader:
+    """
+    快速加载配置（单例模式）
+    在应用启动时调用一次即可
+    """
+    ConfigLoader.load_env()
+    return ConfigLoader
+
+
+# ============================================
+# 便捷函数（向后兼容）
+# ============================================
+
+def get_api_key(platform: str) -> str:
+    """快速获取 API key"""
+    return ConfigLoader.get_api_key(platform)
+
+
+def require_api_key(platform: str) -> str:
+    """强制要求 API key（用于需要认证的功能）"""
+    return ConfigLoader.get_api_key(platform)
+
+
+__all__ = [
+    'ConfigLoader',
+    'load_config',
+    'get_api_key',
+    'require_api_key',
+]

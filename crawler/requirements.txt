@@ -1,0 +1,14 @@
+# NVIDIA 爬虫测试器依赖
+
+# 核心依赖
+openai>=1.0.0
+httpx>=0.24.0
+
+# 爬虫依赖
+playwright>=1.40.0
+
+# 异步支持
+asyncio>=3.7.0
+
+# 数据处理
+pydantic>=2.0.0
