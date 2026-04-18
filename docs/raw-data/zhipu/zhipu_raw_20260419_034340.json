@@ -1,0 +1,113 @@
+{
+  "timestamp": "2026-04-19T03:43:40.025763",
+  "platform": "zhipu",
+  "total": 7,
+  "success": 6,
+  "failed": 1,
+  "timeout": 0,
+  "success_rate": 85.71,
+  "results": [
+    {
+      "model_id": "glm-4-flash-250414",
+      "rank": 1,
+      "status": "success",
+      "response_time": 4.4,
+      "error_message": "",
+      "response_preview": "OK",
+      "is_downloadable": false,
+      "is_free_endpoint": true,
+      "tags": [
+        "flash",
+        "free"
+      ]
+    },
+    {
+      "model_id": "glm-4v-flash",
+      "rank": 2,
+      "status": "success",
+      "response_time": 2.43,
+      "error_message": "",
+      "response_preview": "OK",
+      "is_downloadable": false,
+      "is_free_endpoint": true,
+      "tags": [
+        "flash",
+        "free"
+      ]
+    },
+    {
+      "model_id": "glm-4.7-flash",
+      "rank": 3,
+      "status": "success",
+      "response_time": 34.14,
+      "error_message": "",
+      "response_preview": "",
+      "is_downloadable": false,
+      "is_free_endpoint": true,
+      "tags": [
+        "flash",
+        "free"
+      ]
+    },
+    {
+      "model_id": "glm-4.1v-thinking-flash",
+      "rank": 4,
+      "status": "success",
+      "response_time": 1.36,
+      "error_message": "",
+      "response_preview": "<think>用户现在需要回复'OK'，直接输出即可。</think><answer>OK</answer>",
+      "is_downloadable": false,
+      "is_free_endpoint": true,
+      "tags": [
+        "flash",
+        "free"
+      ]
+    },
+    {
+      "model_id": "cogview-3-flash",
+      "rank": 5,
+      "status": "success",
+      "response_time": 9.91,
+      "error_message": "",
+      "response_preview": [
+        {
+          "url": "https://maas-watermark-prod-new.cn-wlcb.ufileos.com/20260419034412d3e89fa3e839484f_watermark.png?UCloudPublicKey=TOKEN_6df395df-5d8c-4f69-90f8-a4fe46088958&Signature=68GBB4PcdJ2OMdSI0sAWgWbbJVo%3D&Expires=1777146260"
+        }
+      ],
+      "is_downloadable": false,
+      "is_free_endpoint": true,
+      "tags": [
+        "flash",
+        "free"
+      ]
+    },
+    {
+      "model_id": "cogvideox-flash",
+      "rank": 6,
+      "status": "failed",
+      "response_time": 1.64,
+      "error_message": "Error code: 400 - {'error': {'code': '1212', 'message': '当前模型不支持SYNC调用方式。'}}",
+      "response_preview": "",
+      "is_downloadable": false,
+      "is_free_endpoint": true,
+      "tags": [
+        "flash",
+        "free"
+      ]
+    },
+    {
+      "model_id": "glm-4.6v-flash",
+      "rank": 7,
+      "status": "success",
+      "response_time": 2.07,
+      "error_message": "",
+      "response_preview": "",
+      "is_downloadable": false,
+      "is_free_endpoint": true,
+      "tags": [
+        "flash",
+        "free"
+      ]
+    }
+  ]
+}
