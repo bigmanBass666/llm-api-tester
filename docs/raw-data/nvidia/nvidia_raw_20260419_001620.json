@@ -1,0 +1,76 @@
+{
+  "timestamp": "2026-04-19T00:16:20.201660",
+  "platform": "nvidia",
+  "total": 5,
+  "success": 4,
+  "failed": 1,
+  "timeout": 0,
+  "success_rate": 80.0,
+  "results": [
+    {
+      "model_id": "moonshotai/kimi-k2.5",
+      "rank": 1,
+      "status": "success",
+      "response_time": 6.0,
+      "error_message": "",
+      "response_preview": "",
+      "is_downloadable": true,
+      "is_free_endpoint": true,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "model_id": "nvidia/nemotron-3-super-120b-a12b",
+      "rank": 3,
+      "status": "success",
+      "response_time": 6.04,
+      "error_message": "",
+      "response_preview": "The user says: \"请回复'OK'\" which means \"Please reply 'OK'\".",
+      "is_downloadable": true,
+      "is_free_endpoint": true,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "model_id": "z-ai/glm-5.1",
+      "rank": 5,
+      "status": "success",
+      "response_time": 6.23,
+      "error_message": "",
+      "response_preview": "",
+      "is_downloadable": true,
+      "is_free_endpoint": true,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "model_id": "openai/gpt-oss-120b",
+      "rank": 7,
+      "status": "failed",
+      "response_time": 185.99,
+      "error_message": "Connection error.",
+      "response_preview": "",
+      "is_downloadable": true,
+      "is_free_endpoint": true,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "model_id": "qwen/qwen3-next-80b-a3b-instruct",
+      "rank": 9,
+      "status": "success",
+      "response_time": 3.31,
+      "error_message": "",
+      "response_preview": "OK",
+      "is_downloadable": true,
+      "is_free_endpoint": true,
+      "tags": [
+        "downloadable"
+      ]
+    }
+  ]
+}
