@@ -27,63 +27,41 @@ class NvidiaScraper(BaseScraper):
         self.page = None
 
     async def scrape(self, limit: int = 50) -> List[ModelInfo]:
-        """爬取模型列表"""
-        print(f"🔍 NVIDIA: 开始爬取热门模型 (目标: {limit} 个)")
+        """爬取模型列表（优先使用 API）"""
+        print(f"🔍 NVIDIA: 开始获取热门模型 (目标: {limit} 个)")
 
-        await self._init_browser()
+        api_models = await self._fetch_api_model_list()
+
+        if len(api_models) >= limit:
+            print(f"✅ 从 API 获取到 {len(api_models)} 个模型")
+            return api_models[:limit]
+
+        print(f"⚠️ API 仅返回 {len(api_models)} 个，尝试补充页面数据...")
 
         try:
+            await self._init_browser()
+
             await self.page.goto(
                 "https://build.nvidia.com/models?orderBy=weightPopular%3ADESC",
                 wait_until="networkidle"
             )
             await self.page.wait_for_timeout(3000)
 
-            api_model_map = await self._fetch_api_model_map()
+            page_models = await self._extract_models_from_page()
+            await self.close()
 
-            all_models = []
-            page_count = 0
+            merged = {m.id: m for m in api_models}
+            for pm in page_models:
+                if pm.id not in merged:
+                    merged[pm.id] = pm
 
-            while len(all_models) < limit:
-                page_count += 1
-                print(f"\r📄 NVIDIA: 正在爬取第 {page_count} 页... (已获取 {len(all_models)}/{limit})", end="")
-
-                models = await self._extract_models()
-
-                if not models:
-                    break
-
-                existing_ids = {m.id for m in all_models}
-                new_models = [m for m in models if m.id not in existing_ids]
-
-                standardized_models = []
-                for model in new_models:
-                    full_id = self._find_matching_model_id(model.id, api_model_map)
-                    model.id = full_id
-                    model.name = full_id
-                    model.vendor = full_id.split("/")[0] if "/" in full_id else "unknown"
-                    standardized_models.append(model)
-
-                seen_ids = {m.id for m in all_models}
-                for m in standardized_models:
-                    if m.id not in seen_ids:
-                        all_models.append(m)
-                        seen_ids.add(m.id)
-
-                if len(all_models) < limit:
-                    scroll_success = await self._scroll_for_more()
-                    if not scroll_success:
-                        break
-
-            print(f"\n✅ NVIDIA: 爬取完成，共 {len(all_models)} 个模型")
-            return all_models[:limit]
+            result = list(merged.values())[:limit]
+            print(f"✅ 合并后共 {len(result)} 个模型")
+            return result
 
         except Exception as e:
-            print(f"\n❌ NVIDIA: 爬取失败 - {e}")
-            return []
-
-        finally:
-            await self.close()
+            print(f"⚠️ 页面爬取失败，使用 API 数据: {e}")
+            return api_models[:limit]
 
     async def _init_browser(self):
         """初始化浏览器"""
@@ -99,6 +77,44 @@ class NvidiaScraper(BaseScraper):
         """关闭浏览器"""
         if self.browser:
             await self.browser.close()
+
+    async def _fetch_api_model_list(self) -> List[ModelInfo]:
+        """从 NVIDIA API 获取完整模型列表"""
+        import os
+        api_url = "https://integrate.api.nvidia.com/v1/models"
+        api_key = os.getenv("NVIDIA_API_KEY")
+
+        models = []
+
+        if not api_key:
+            print("⚠️ 未设置 NVIDIA_API_KEY")
+            return models
+
+        try:
+            async with httpx.AsyncClient(timeout=30, verify=False) as client:
+                headers = {"Authorization": f"Bearer {api_key}"}
+                resp = await client.get(api_url, headers=headers)
+
+                if resp.status_code == 200:
+                    data = resp.json()
+                    for i, m in enumerate(data.get("data", []), 1):
+                        full_id = m.get("id", "")
+                        if full_id:
+                            vendor = full_id.split("/")[0] if "/" in full_id else "unknown"
+                            model = ModelInfo(
+                                id=full_id,
+                                name=full_id,
+                                vendor=vendor,
+                                rank=i,
+                                is_free_endpoint=True,
+                                tags=[]
+                            )
+                            models.append(model)
+
+        except Exception as e:
+            print(f"⚠️ API 请求失败: {e}")
+
+        return models
 
     async def _fetch_api_model_map(self) -> Dict[str, str]:
         """从 NVIDIA API 获取完整模型列表"""
@@ -140,31 +156,41 @@ class NvidiaScraper(BaseScraper):
 
         return short_name
 
-    async def _extract_models(self) -> List[ModelInfo]:
-        """提取模型数据"""
+    async def _extract_models_from_page(self) -> List[ModelInfo]:
+        """从页面提取模型数据"""
         models = []
 
         try:
             model_cards = await self.page.query_selector_all(
-                "div[class*='model'], div[class*='card'], article[class*='model']"
+                'a[href*="/models/"], div[class*="model-card"]'
             )
 
-            for i, card in enumerate(model_cards, 1):
+            if not model_cards:
+                model_cards = await self.page.query_selector_all(
+                    'h3 a[href*="/"]'
+                )
+
+            for i, card in enumerate(model_cards[:50], 1):
                 try:
-                    model_name_elem = await card.query_selector(
-                        "h1, h2, h3, h4, h5, [class*='model-title'], [class*='modelName']"
-                    )
-                    model_name = await model_name_elem.text_content() if model_name_elem else f"unknown-{i}"
-                    model_name = model_name.strip()
+                    heading = await card.query_selector('h3, h2')
+                    model_name = (await heading.text_content() or "").strip() if heading else ""
+
+                    if not model_name:
+                        link = await card.query_selector('a[href]')
+                        if link:
+                            href = (await link.get_attribute('href') or "")
+                            model_name = href.rstrip('/').split('/')[-1]
+
+                    if not model_name or len(model_name) < 2:
+                        continue
 
                     tags = []
                     downloadable = False
                     free_endpoint = True
 
                     tag_elements = await card.query_selector_all(
-                        "[class*='badge'], [class*='tag'], span[class*='badge']"
+                        '[class*="badge"], [class*="tag"], span[class*="label"]'
                     )
-
                     for tag_elem in tag_elements:
                         tag_text = (await tag_elem.text_content() or "").strip().lower()
                         if 'downloadable' in tag_text or 'download' in tag_text:
@@ -172,6 +198,11 @@ class NvidiaScraper(BaseScraper):
                             tags.append('downloadable')
                         elif 'free' in tag_text:
                             tags.append('free')
+
+                    dl_element = await card.query_selector('[class*="downloadable"]')
+                    if dl_element and not downloadable:
+                        downloadable = True
+                        tags.append('downloadable')
 
                     vendor = model_name.split("/")[0] if "/" in model_name else "unknown"
 
@@ -189,8 +220,8 @@ class NvidiaScraper(BaseScraper):
                 except Exception:
                     continue
 
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"⚠️ 页面提取失败: {e}")
 
         return models
 
