@@ -18,6 +18,7 @@ class ModelInfo:
     is_downloadable: bool = False
     is_free_endpoint: bool = True
     tags: List[str] = field(default_factory=list)
+    href: str = ""
 
     def to_dict(self) -> dict:
         return {
