@@ -19,13 +19,19 @@ from report import ReportGenerator
 
 
 async def main():
+    ConfigLoader.load_env('.env.local')
+    defaults = ConfigLoader.get_platform_defaults('zhipu')
+
     parser = argparse.ArgumentParser(description="智谱模型批量测试")
-    parser.add_argument("-n", "--number", type=int, default=20,
-                       help="测试的模型数量 (默认: 20)")
-    parser.add_argument("-c", "--concurrency", type=int, default=10,
-                       help="并发测试数量 (默认: 10)")
-    parser.add_argument("--timeout", type=int, default=60,
-                       help="单个模型测试超时时间(秒) (默认: 60)")
+    parser.add_argument("-n", "--number", type=int,
+                       default=defaults.get('number', 20),
+                       help="测试的模型数量")
+    parser.add_argument("-c", "--concurrency", type=int,
+                       default=defaults.get('concurrency', 10),
+                       help="并发测试数量")
+    parser.add_argument("--timeout", type=int,
+                       default=defaults.get('timeout', 60),
+                       help="单个模型测试超时时间(秒)")
 
     args = parser.parse_args()
 
@@ -33,7 +39,6 @@ async def main():
     print("🔍 智谱模型批量测试")
     print("=" * 60)
 
-    ConfigLoader.load_env('.env.local')
     api_key = os.getenv('ZHIPU_API_KEY')
 
     if not api_key:

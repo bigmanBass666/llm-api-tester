@@ -7,18 +7,45 @@ import os
 from pathlib import Path
 from typing import Optional, Dict, Any
 from dotenv import load_dotenv
+import yaml
 
 
 class ConfigLoader:
     """统一配置加载器"""
 
-    # 平台到环境变量的映射
     ENV_VAR_MAP = {
         'nvidia': 'NVIDIA_API_KEY',
         'zhipu': 'ZHIPU_API_KEY',
         'aliyun': 'DASHSCOPE_API_KEY',
-        'tencent': 'TENCENTCLOUD_SECRET_ID',  # 腾讯需要ID，key用另一个变量
+        'tencent': 'TENCENTCLOUD_SECRET_ID',
     }
+
+    _yaml_config: Optional[Dict[str, Any]] = None
+
+    @classmethod
+    def _load_yaml(cls) -> Dict[str, Any]:
+        if cls._yaml_config is None:
+            config_path = Path(__file__).parent.parent / 'configs' / 'platforms.yaml'
+            if config_path.exists():
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    cls._yaml_config = yaml.safe_load(f) or {}
+            else:
+                cls._yaml_config = {}
+        return cls._yaml_config
+
+    @classmethod
+    def get_defaults(cls) -> Dict[str, Any]:
+        return cls._load_yaml().get('defaults', {})
+
+    @classmethod
+    def get_platform_defaults(cls, platform: str) -> Dict[str, Any]:
+        yaml_config = cls._load_yaml()
+        defaults = dict(yaml_config.get('defaults', {}))
+        platform_overrides = yaml_config.get('platforms', {}).get(platform, {})
+        for key in ('concurrency', 'timeout', 'number'):
+            if key in platform_overrides:
+                defaults[key] = platform_overrides[key]
+        return defaults
 
     @classmethod
     def load_env(cls, env_file: Optional[str] = None) -> None:

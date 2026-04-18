@@ -1,8 +1,15 @@
 # 平台配置
 # 所有支持的 API 平台
 
+defaults:
+  concurrency: 10
+  timeout: 60
+  number: 20
+
 platforms:
   nvidia:
+    concurrency: 10
+    timeout: 30
     name: "nvidia"
     display_name: "NVIDIA NIM"
     base_url: "https://integrate.api.nvidia.com/v1"
