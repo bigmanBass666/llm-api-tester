@@ -22,8 +22,8 @@ async def main():
     parser = argparse.ArgumentParser(description="智谱模型批量测试")
     parser.add_argument("-n", "--number", type=int, default=20,
                        help="测试的模型数量 (默认: 20)")
-    parser.add_argument("-c", "--concurrency", type=int, default=3,
-                       help="并发测试数量 (默认: 3)")
+    parser.add_argument("-c", "--concurrency", type=int, default=10,
+                       help="并发测试数量 (默认: 10)")
     parser.add_argument("--timeout", type=int, default=60,
                        help="单个模型测试超时时间(秒) (默认: 60)")
 
