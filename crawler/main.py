@@ -42,6 +42,9 @@ async def main():
                        help="仅爬取模型列表，不测试")
     parser.add_argument("--timeout", type=int, default=60,
                        help="单个模型测试超时时间(秒) (默认: 60)")
+    parser.add_argument("--sort-by", type=str, default="popular",
+                       choices=["popular", "recent"],
+                       help="排序方式: popular(热度) 或 recent(最新) (默认: popular)")
     parser.add_argument("--no-log", action="store_true",
                        help="禁用日志系统")
     parser.add_argument("--log-dir", type=str, default="logs",
@@ -57,6 +60,7 @@ async def main():
     print(f"   模型数量: {args.number}")
     print(f"   并发数: {args.concurrency}")
     print(f"   超时时间: {args.timeout}s")
+    print(f"   排序方式: {args.sort_by}")
     print(f"   仅爬取: {args.scrape_only}")
     print()
 
@@ -81,7 +85,7 @@ async def main():
             else:
                 print("🔍 仅爬取模型列表...")
 
-            models = await scrape_top_models(args.number)
+            models = await scrape_top_models(args.number, sort_by=args.sort_by)
 
             if models:
                 if logger:
@@ -102,7 +106,8 @@ async def main():
                 limit=args.number,
                 concurrency=args.concurrency,
                 use_logger=not args.no_log,
-                resume=not args.no_resume
+                resume=not args.no_resume,
+                sort_by=args.sort_by
             )
 
         if logger:

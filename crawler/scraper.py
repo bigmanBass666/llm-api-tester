@@ -411,11 +411,22 @@ class NvidiaScraper:
             return {"id": model_short_name, "code": None, "url": f"https://build.nvidia.com/{model_short_name}"}
 
 
-async def scrape_top_models(limit: int = 50) -> List[ModelInfo]:
-    """爬取前N个热门模型"""
+async def scrape_top_models(limit: int = 50, sort_by: str = "popular") -> List[ModelInfo]:
+    """爬取前N个热门模型
+
+    Args:
+        limit: 爬取的模型数量
+        sort_by: 排序方式，'popular' 或 'recent'
+    """
     scraper = NvidiaScraper(headless=True)
     try:
-        models = await scraper.scrape_models(limit=limit)
+        # 根据排序方式构建 URL
+        if sort_by == "popular":
+            url = "https://build.nvidia.com/models?orderBy=weightPopular%3ADESC"
+        else:  # recent
+            url = "https://build.nvidia.com/models"
+
+        models = await scraper.scrape_models(limit=limit, url=url)
         return models
     finally:
         await scraper.close()

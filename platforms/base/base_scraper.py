@@ -18,11 +18,13 @@ class BaseScraper(ABC):
     platform_name: str = "base"
 
     @abstractmethod
-    async def scrape(self, limit: int = 50) -> List[ModelInfo]:
+    async def scrape(self, limit: int = 50, sort_by: str = "popular", sort_order: str = "DESC") -> List[ModelInfo]:
         """
         爬取模型列表
         Args:
             limit: 爬取数量
+            sort_by: 排序方式，支持 'popular'(热度) 或 'recent'(最新)
+            sort_order: 排序方向，'ASC' 或 'DESC'（仅 DESC 有效）
         Returns:
             模型信息列表
         """

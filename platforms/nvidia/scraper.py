@@ -28,15 +28,25 @@ class NvidiaScraper(BaseScraper):
         self.page = None
         self._cookie_dismissed = False
 
-    async def scrape(self, limit: int = 50) -> List[ModelInfo]:
-        """爬取模型列表（多页翻页 + 热度排序）"""
-        print(f"🔍 NVIDIA: 开始获取热门模型 (目标: {limit} 个)")
+    async def scrape(self, limit: int = 50, sort_by: str = "popular", sort_order: str = "DESC") -> List[ModelInfo]:
+        """爬取模型列表（多页翻页 + 支持多种排序）"""
+        # 验证并构建排序参数
+        if sort_by not in ["popular", "recent"]:
+            raise ValueError(f"不支持的排序方式: {sort_by}，可选值: popular, recent")
+
+        # 构建 URL
+        if sort_by == "popular":
+            base_url = "https://build.nvidia.com/models?orderBy=weightPopular%3ADESC"
+            sort_name = "热度"
+        else:  # recent
+            base_url = "https://build.nvidia.com/models"
+            sort_name = "最新"
+
+        print(f"🔍 NVIDIA: 开始获取模型列表 (目标: {limit} 个, 排序: {sort_name})")
 
         try:
             await self._init_browser()
 
-            base_url = "https://build.nvidia.com/models?orderBy=weightPopular%3ADESC"
-            
             await self.page.goto(base_url, wait_until="networkidle")
             await self.page.wait_for_timeout(3000)
 

@@ -32,6 +32,10 @@ async def main():
     parser.add_argument("--timeout", type=int,
                        default=defaults.get('timeout', 60),
                        help="单个模型测试超时时间(秒)")
+    parser.add_argument("--sort-by", type=str,
+                       default="popular",
+                       choices=["popular", "recent"],
+                       help="排序方式: popular(热度) 或 recent(最新发布)")
 
     args = parser.parse_args()
 
@@ -50,10 +54,11 @@ async def main():
     print(f"   模型数量: {args.number}")
     print(f"   并发数: {args.concurrency}")
     print(f"   超时时间: {args.timeout}s")
+    print(f"   排序方式: {args.sort_by}")
     print()
 
     scraper = NvidiaScraper(headless=True)
-    models = await scraper.scrape(limit=args.number)
+    models = await scraper.scrape(limit=args.number, sort_by=args.sort_by)
     await scraper.close()
 
     if not models:

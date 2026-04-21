@@ -17,9 +17,8 @@ class ModelTester:
     """模型测试器"""
 
     def __init__(self, api_key: Optional[str] = None, logger: Optional[ModelTestLogger] = None):
-        # 设置 SSL 证书
-        os.environ.setdefault('SSL_CERT_FILE', r'D:\apps\python312\Lib\site-packages\certifi\cacert.pem')
-        os.environ.setdefault('REQUESTS_CA_BUNDLE', r'D:\apps\python312\Lib\site-packages\certifi\cacert.pem')
+        from src.ssl_config import setup_ssl_certificates
+        setup_ssl_certificates()
 
         self.api_key = api_key or os.getenv("NVIDIA_API_KEY")
         if not self.api_key:
@@ -222,8 +221,17 @@ def save_report(report: dict, filename: str):
 
 
 async def test_top_models(limit: int = 50, concurrency: int = 5,
-                          use_logger: bool = True, resume: bool = True):
-    """测试前N个热门模型"""
+                          use_logger: bool = True, resume: bool = True,
+                          sort_by: str = "popular"):
+    """测试前N个热门模型
+
+    Args:
+        limit: 测试的模型数量
+        concurrency: 并发数
+        use_logger: 是否使用日志系统
+        resume: 是否启用断点续传
+        sort_by: 排序方式，'popular' 或 'recent'
+    """
     from .scraper import scrape_top_models
     from .logger import create_logger
 
@@ -240,7 +248,7 @@ async def test_top_models(limit: int = 50, concurrency: int = 5,
     else:
         print("1. 爬取模型列表...")
 
-    models = await scrape_top_models(limit)
+    models = await scrape_top_models(limit, sort_by=sort_by)
 
     if not models:
         if logger:

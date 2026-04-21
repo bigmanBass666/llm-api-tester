@@ -27,8 +27,8 @@ class ZhipuScraper(BaseScraper):
         ("glm-4.6v-flash", "glm-4.6v-flash", "智谱", True),
     ]
 
-    async def scrape(self, limit: int = 50) -> List[ModelInfo]:
-        """获取模型列表"""
+    async def scrape(self, limit: int = 50, sort_by: str = "popular", sort_order: str = "DESC") -> List[ModelInfo]:
+        """获取模型列表（智谱使用预定义列表，排序参数被忽略）"""
         print(f"🔍 智谱: 加载模型列表 (共 {len(self.KNOWN_MODELS)} 个)")
 
         models = []
