@@ -20,8 +20,8 @@ class NvidiaTester(BaseTester):
     platform_name = "nvidia"
 
     def __init__(self, api_key: str):
-        os.environ.setdefault('SSL_CERT_FILE', r'D:\apps\python312\Lib\site-packages\certifi\cacert.pem')
-        os.environ.setdefault('REQUESTS_CA_BUNDLE', r'D:\apps\python312\Lib\site-packages\certifi\cacert.pem')
+        from src.ssl_config import setup_ssl_certificates
+        setup_ssl_certificates()
 
         self.api_key = api_key
         self.base_url = "https://integrate.api.nvidia.com/v1"
@@ -37,8 +37,11 @@ class NvidiaTester(BaseTester):
                 http_client=httpx.Client(verify=True, timeout=timeout)
             )
 
+            # 双重保障：确保 ID 格式正确（下划线 → 点号）
+            api_model_id = model.id.replace('_', '.') if '_' in model.id else model.id
+
             response = client.chat.completions.create(
-                model=model.id,
+                model=api_model_id,
                 messages=[{"role": "user", "content": "请回复'OK'"}],
                 max_tokens=20
             )

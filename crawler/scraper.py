@@ -15,6 +15,23 @@ from .logger import get_logger
 
 logger = get_logger(__name__)
 
+def fix_model_id(model_id: str) -> str:
+    """将 NVIDIA 网页 ID 转换为 API 所需的 ID 格式
+
+    NVIDIA 网页 URL 使用下划线 (deepseek-v3_2)，
+    但实际 API 需要点号 (deepseek-v3.2)
+
+    Args:
+        model_id: 从网页提取的原始 ID
+
+    Returns:
+        修复后的 ID（下划线替换为点号）
+    """
+    fixed = model_id.replace('_', '.')
+    if fixed != model_id:
+        logger.debug(f"🔧 ID 格式修复: {model_id} → {fixed}")
+    return fixed
+
 # 文字模型 Category Tag 白名单
 TEXT_MODEL_CATEGORIES = {
     'text-generation', 'chat', 'coding', 'reasoning',
@@ -397,8 +414,8 @@ class NvidiaScraper:
                     except Exception as e:
                         logger.debug(f"  提取 Category Tag 失败: {e}")
 
-                    # 确定最终的模型 ID（优先使用完整 ID）
-                    final_id = full_model_id if full_model_id else model_name
+                    # 确定最终的模型 ID（优先使用完整 ID）并修复格式
+                    final_id = fix_model_id(full_model_id if full_model_id else model_name)
 
                     # 判断是否为文字模型
                     is_text = self._is_text_model_from_category(category, final_id)
@@ -603,7 +620,7 @@ class NvidiaScraper:
                     if len(match) > 3:  # 过滤掉太短的匹配
                         vendor = match.split("/")[0] if "/" in match else "unknown"
                         model = ModelInfo(
-                            id=match,
+                            id=fix_model_id(match),
                             name=match,
                             vendor=vendor,
                             rank=i,
@@ -634,7 +651,7 @@ class NvidiaScraper:
             for i, model_id in enumerate(known_models[:50], 1):
                 vendor = model_id.split("/")[0]
                 model = ModelInfo(
-                    id=model_id,
+                    id=fix_model_id(model_id),
                     name=model_id,
                     vendor=vendor,
                     rank=i,
