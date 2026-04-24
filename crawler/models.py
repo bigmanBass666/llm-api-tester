@@ -24,6 +24,7 @@ class ModelInfo:
     is_downloadable: bool = False    # 是否可下载
     is_free_endpoint: bool = True    # 是否有免费端点（大多数NVIDIA模型都是免费的）
     tags: List[str] = None           # 其他标签（context window, use case 等）
+    description: Optional[str] = None  # 模型描述文本
 
     @property
     def status_icon(self) -> str:

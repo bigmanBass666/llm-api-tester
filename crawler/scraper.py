@@ -151,72 +151,162 @@ class NvidiaScraper:
             return []
 
     async def _extract_models(self) -> List[ModelInfo]:
-        """提取模型数据（包含标签）"""
+        """提取模型数据（使用精确的 data-testid 选择器）
+
+        基于 Playwright 探索发现 NVIDIA 网页使用精确的 data-testid 属性：
+        - [data-testid='nv-card-root']: 模型卡片根元素
+        - a[data-nvtrack-nav-object-label]: 发布商链接
+        - span[data-testid="nv-badge"]: 标签元素
+        - a[data-nvtrack-nav-object="artifact-card"]: 模型链接（包含完整ID）
+        """
         models = []
 
         try:
-            # 方法1: 从卡片元素提取
+            # Task 4: 使用精确的选择器定位模型卡片
+            # 原因：NVIDIA 网站使用 data-testid 属性精确定位组件，比宽泛的 class 选择器更可靠
             model_cards = await self.page.query_selector_all(
-                "div[class*='model'], div[class*='card'], article[class*='model'], [data-testid*='model']"
+                "[data-testid='nv-card-root']"
             )
 
-            logger.debug(f"找到 {len(model_cards)} 个模型卡片")
+            logger.debug(f"找到 {len(model_cards)} 个模型卡片 (使用 nv-card-root)")
 
             for i, card in enumerate(model_cards[:50], 1):
                 try:
-                    # 获取模型ID (short name)
-                    model_name_elem = await card.query_selector(
-                        "h1, h2, h3, h4, h5, [class*='model-title'], [class*='modelName'], [class*='name']"
-                    )
-                    model_name = await model_name_elem.text_content() if model_name_elem else f"unknown-{i}"
-                    model_name = model_name.strip()
-
-                    # 提取标签（Downloadable, Free endpoint等）
+                    # ===== 初始化默认值 =====
+                    model_name = f"unknown-{i}"
+                    vendor = "unknown"
                     tags = []
                     downloadable = False
                     free_endpoint = True  # 默认免费
+                    full_model_id = None
+                    description = None
 
-                    # 查找标签元素
-                    tag_elements = await card.query_selector_all(
-                        "[class*='badge'], [class*='tag'], [class*='pill'], span[class*='badge']"
-                    )
-
-                    for tag_elem in tag_elements:
-                        tag_text = await tag_elem.text_content()
-                        tag_text = tag_text.strip().lower()
-
-                        if 'downloadable' in tag_text or 'download' in tag_text:
-                            downloadable = True
-                            tags.append('downloadable')
-                        elif 'free' in tag_text:
-                            tags.append('free')
-                        elif 'paid' in tag_text or 'enterprise' in tag_text:
-                            free_endpoint = False
-                            tags.append('paid')
-
-                    # 检查是否有下载按钮/链接
-                    download_link = await card.query_selector(
-                        "a[href*='download'], button[class*='download'], [class*='download']"
-                    )
-                    if download_link and not downloadable:
-                        downloadable = True
-                        tags.append('downloadable')
-
-                    # 获取供应商（从模型名中提取）
-                    vendor = "unknown"
-                    if "/" in model_name:
-                        vendor = model_name.split("/")[0]
-                    else:
-                        # 尝试从卡片中找供应商
-                        vendor_elem = await card.query_selector(
-                            "[class*='vendor'], [class*='organization']"
+                    # Task 5.3: 提取完整模型 ID（优先从链接获取）
+                    try:
+                        card_link = await card.query_selector(
+                            "a[data-nvtrack-nav-object='artifact-card']"
                         )
-                        if vendor_elem:
-                            vendor_text = await vendor_elem.text_content()
-                            vendor = vendor_text.strip().lower().replace(" ", "-")
+                        if card_link:
+                            href = await card_link.get_attribute("href")
+                            if href and href.startswith("/"):
+                                full_model_id = href.lstrip("/")
+                                logger.debug(f"  从链接获取完整ID: {full_model_id}")
+                    except Exception as e:
+                        logger.debug(f"  提取完整ID失败: {e}")
+
+                    # 获取模型名称（短名称，用于显示）
+                    try:
+                        model_name_elem = await card.query_selector(
+                            "h1, h2, h3, h4, h5, [class*='model-title'], "
+                            "[class*='modelName'], [class*='name']"
+                        )
+                        if model_name_elem:
+                            model_name = await model_name_elem.text_content()
+                            if model_name:
+                                model_name = model_name.strip()
+
+                        # 如果没有获取到名称但获取到了完整ID，使用完整ID的最后一部分
+                        if model_name == f"unknown-{i}" and full_model_id:
+                            model_name = full_model_id.split("/")[-1] if "/" in full_model_id else full_model_id
+                    except Exception as e:
+                        logger.debug(f"  提取模型名称失败: {e}")
+
+                    # Task 5.1: 提取发布商信息（vendor）
+                    try:
+                        vendor_link = await card.query_selector(
+                            "a[data-nvtrack-nav-object-label]"
+                        )
+                        if vendor_link:
+                            vendor_text = await vendor_link.text_content()
+                            if vendor_text:
+                                vendor = vendor_text.strip().lower().replace(" ", "-")
+                                logger.debug(f"  发布商: {vendor}")
+                        elif full_model_id and "/" in full_model_id:
+                            # Fallback: 从完整 ID 中提取发布商
+                            vendor = full_model_id.split("/")[0]
+                    except Exception as e:
+                        logger.debug(f"  提取发布商失败: {e}")
+                        # Fallback 到旧逻辑
+                        if "/" in model_name:
+                            vendor = model_name.split("/")[0]
+
+                    # Task 5.2: 增强标签提取逻辑（使用精确选择器）
+                    try:
+                        badge_elements = await card.query_selector_all(
+                            "span[data-testid='nv-badge']"
+                        )
+
+                        if badge_elements:
+                            logger.debug(f"  找到 {len(badge_elements)} 个标签")
+                            for badge in badge_elements:
+                                try:
+                                    tag_text = await badge.text_content()
+                                    if tag_text:
+                                        tag_text = tag_text.strip().lower()
+                                        tags.append(tag_text)
+
+                                        # 根据标签内容设置布尔标志
+                                        if 'downloadable' in tag_text or 'download' in tag_text:
+                                            downloadable = True
+                                        elif 'free' in tag_text:
+                                            free_endpoint = True
+                                        elif 'paid' in tag_text or 'enterprise' in tag_text:
+                                            free_endpoint = False
+                                except Exception as e:
+                                    logger.debug(f"    解析标签失败: {e}")
+                                    continue
+                        else:
+                            # Fallback: 使用旧的宽泛选择器查找标签
+                            tag_elements = await card.query_selector_all(
+                                "[class*='badge'], [class*='tag'], [class*='pill'], span[class*='badge']"
+                            )
+                            for tag_elem in tag_elements:
+                                try:
+                                    tag_text = await tag_elem.text_content()
+                                    if tag_text:
+                                        tag_text = tag_text.strip().lower()
+                                        tags.append(tag_text)
+                                        if 'downloadable' in tag_text or 'download' in tag_text:
+                                            downloadable = True
+                                        elif 'free' in tag_text:
+                                            free_endpoint = True
+                                        elif 'paid' in tag_text or 'enterprise' in tag_text:
+                                            free_endpoint = False
+                                except Exception:
+                                    continue
+                    except Exception as e:
+                        logger.debug(f"  提取标签失败: {e}")
+
+                    # 检查下载按钮/链接（补充检测）
+                    try:
+                        download_link = await card.query_selector(
+                            "a[href*='download'], button[class*='download'], [class*='download']"
+                        )
+                        if download_link and not downloadable:
+                            downloadable = True
+                            if 'downloadable' not in tags:
+                                tags.append('downloadable')
+                    except Exception:
+                        pass
+
+                    # Task 5.4: 可选 - 提取模型描述文本
+                    try:
+                        desc_elem = await card.query_selector(
+                            "[class*='description'], [class*='desc'], p[class*='summary']"
+                        )
+                        if desc_elem:
+                            desc_text = await desc_elem.text_content()
+                            if desc_text:
+                                description = desc_text.strip()[:200]  # 限制长度
+                                logger.debug(f"  描述: {description[:50]}...")
+                    except Exception:
+                        pass
+
+                    # 确定最终的模型 ID（优先使用完整 ID）
+                    final_id = full_model_id if full_model_id else model_name
 
                     model = ModelInfo(
-                        id=model_name,
+                        id=final_id,
                         name=model_name,
                         vendor=vendor,
                         rank=i,
@@ -224,13 +314,16 @@ class NvidiaScraper:
                         test_status="pending",
                         is_downloadable=downloadable,
                         is_free_endpoint=free_endpoint,
-                        tags=tags
+                        tags=tags,
+                        description=description
                     )
                     models.append(model)
 
-                    # 打印标签信息（调试）
-                    if tags:
-                        logger.debug(f"Model #{i}: {model_name} - Tags: {tags}")
+                    # 打印详细信息（调试）
+                    logger.debug(
+                        f"Model #{i}: {final_id} | Vendor: {vendor} | "
+                        f"Tags: {tags} | Downloadable: {downloadable} | Free: {free_endpoint}"
+                    )
 
                 except Exception as e:
                     logger.warning(f"解析卡片 {i} 失败: {e}")
