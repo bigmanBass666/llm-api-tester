@@ -34,8 +34,8 @@ class NvidiaScraper:
         )
         self.page = await self.browser.new_page()
 
-        # 设置超时
-        self.page.set_default_timeout(60000)
+        # 设置超时（增加到180秒以应对更严重的网络延迟）
+        self.page.set_default_timeout(180000)
 
     async def close(self):
         """关闭浏览器"""
@@ -62,11 +62,41 @@ class NvidiaScraper:
                 url = f"{url}&pageSize={page_size}" if "?" in url else f"{url}?pageSize={page_size}"
                 logger.debug(f"自动添加pageSize参数: {url}")
 
-            # 访问页面
-            await self.page.goto(url, wait_until="networkidle")
+            # 访问页面（带重试机制，增强网络鲁棒性）
+            max_retries = 3
+            for attempt in range(1, max_retries + 1):
+                try:
+                    logger.info(f"正在加载页面 (尝试 {attempt}/{max_retries})...")
+                    await self.page.goto(url, wait_until="networkidle", timeout=120000)
+                    logger.info("✅ 页面加载成功（networkidle）")
+                    break
+                except Exception as e:
+                    if attempt < max_retries:
+                        logger.warning(f"页面加载失败 (尝试 {attempt}/{max_retries}): {e}")
+                        # 指数退避等待：3秒、6秒、9秒
+                        wait_time = 3 * attempt
+                        logger.warning(f"等待 {wait_time} 秒后重试...")
+                        await asyncio.sleep(wait_time)
+
+                        # 最后一次尝试使用 domcontentloaded 作为备选策略
+                        if attempt == max_retries - 1:
+                            try:
+                                logger.warning("networkidle 超时，尝试使用 domcontentloaded 策略")
+                                await self.page.goto(url, wait_until="domcontentloaded", timeout=120000)
+                                logger.info("✅ 页面加载成功（domcontentloaded）")
+                                break
+                            except Exception as fallback_e:
+                                logger.warning(f"domcontentloaded 策略也失败: {fallback_e}")
+                                continue
+                    else:
+                        logger.error(f"经过 {max_retries} 次尝试后页面仍无法加载")
+                        raise e
 
             # 等待页面加载完成
             await self.page.wait_for_timeout(5000)
+
+            # 关闭可能出现的 Cookie 弹窗（防止阻挡后续操作）
+            await self._close_cookie_consent()
 
             all_models = []
             page_count = 0
@@ -513,6 +543,41 @@ class NvidiaScraper:
 
         return models
 
+    async def _close_cookie_consent(self):
+        """关闭 OneTrust Cookie 同意弹窗（如果存在）
+
+        NVIDIA 网站使用 OneTrust Cookie 同意弹窗，会阻挡页面元素的点击操作。
+        此方法在关键操作前调用以确保弹窗不会干扰。
+        """
+        try:
+            # 查找并点击 "Accept All" 或类似按钮
+            accept_selectors = [
+                '#onetrust-accept-btn-handler',  # Accept All 按钮
+                '.onetrust-close-btn-handler',   # 关闭按钮
+                'button[id*="accept"]',           # 通用接受按钮
+                '[class*="cookie"] button:first-child',  # Cookie 弹窗中的第一个按钮
+            ]
+
+            for selector in accept_selectors:
+                try:
+                    btn = await self.page.query_selector(selector)
+                    if btn and await btn.is_visible():
+                        await btn.click()
+                        logger.info("✅ 已关闭 Cookie 同意弹窗")
+                        await self.page.wait_for_timeout(1000)
+                        return True
+                except Exception:
+                    continue
+
+            # 如果找不到按钮，尝试按 ESC 键关闭弹窗
+            await self.page.keyboard.press('Escape')
+            await self.page.wait_for_timeout(500)
+
+        except Exception as e:
+            logger.debug(f"关闭弹窗时出错（可忽略）: {e}")
+
+        return False
+
     async def _go_to_next_page(self) -> bool:
         """点击下一页按钮进行翻页
 
@@ -523,6 +588,9 @@ class NvidiaScraper:
             bool: 是否成功翻页（True=成功翻页, False=已到末页或失败）
         """
         try:
+            # 关闭可能出现的 Cookie 弹窗（防止阻挡点击）
+            await self._close_cookie_consent()
+
             # 定位下一页按钮（使用 aria-label 属性）
             next_button = await self.page.query_selector('button[aria-label="Go to next page"]')
 
