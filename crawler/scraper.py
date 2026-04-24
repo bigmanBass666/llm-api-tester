@@ -620,12 +620,12 @@ class NvidiaScraper:
             logger.info("点击下一页按钮...")
             await next_button.click()
 
-            # 等待页面加载完成（2-3秒让新内容渲染）
-            await self.page.wait_for_timeout(2500)
+            # 等待页面加载完成（增加到5秒，让动态内容充分渲染）
+            await self.page.wait_for_timeout(5000)
 
-            # 额外等待网络空闲
+            # 额外等待网络空闲（增加到10秒）
             try:
-                await self.page.wait_for_load_state("networkidle", timeout=5000)
+                await self.page.wait_for_load_state("networkidle", timeout=10000)
             except Exception:
                 pass  # 超时也继续
 
