@@ -53,11 +53,13 @@ async def main():
                        help="禁用日志系统")
     parser.add_argument("--log-dir", type=str, default="logs",
                        help="日志目录 (默认: logs)")
-    parser.add_argument("--no-resume", action="store_true",
-                       help="禁用断点续传（重新测试所有模型）")
+    parser.add_argument("--resume", action="store_true",
+                       help="启用断点续传（跳过已测试的模型）")
     parser.add_argument("--filter-text", action="store_true",
-                       default=False,
-                       help="只爬取和测试文字模型（过滤语音、图像、嵌入等非文字模型）")
+                       default=True,
+                       help="只爬取和测试文字模型（过滤语音、图像、嵌入等非文字模型）【默认启用】")
+    parser.add_argument("--no-filter", action="store_true",
+                       help="禁用非文字模型过滤（将测试所有模型，包括嵌入/图像/OCR等）")
 
     args = parser.parse_args()
 
@@ -69,7 +71,7 @@ async def main():
     print(f"   超时时间: {args.timeout}s")
     print(f"   排序方式: {args.sort_by}")
     print(f"   仅爬取: {args.scrape_only}")
-    print(f"   过滤非文字模型: {'✅ 启用' if args.filter_text else '❌ 禁用'}")
+    print(f"   过滤非文字模型: {'✅ 启用（默认）' if not args.no_filter else '❌ 禁用（--no-filter）'}")
     print()
 
     try:
@@ -77,7 +79,7 @@ async def main():
         logger = None
         if not args.no_log:
             from crawler.logger import create_logger
-            logger = create_logger(log_dir=args.log_dir)
+            logger = create_logger(log_dir=args.log_dir, resume=args.resume)
 
             if logger:
                 logger.log_phase('init',
@@ -93,7 +95,7 @@ async def main():
             else:
                 print("🔍 仅爬取模型列表...")
 
-            models = await scrape_top_models(args.number, sort_by=args.sort_by, filter_text_models=args.filter_text)
+            models = await scrape_top_models(args.number, sort_by=args.sort_by, filter_text_models=not args.no_filter)
 
             if models:
                 if logger:
@@ -102,6 +104,9 @@ async def main():
                     print(f"✅ 成功爬取 {len(models)} 个模型:")
                     for m in models:
                         print(f"   #{m.rank:2d} {m.id}")
+                    print(f"\n📊 过滤统计:")
+                    print(f"   过滤模式: {'文字模型过滤（默认）' if not args.no_filter else '全量模式（包含非文字模型）'}")
+                    print(f"   获取数量: {len(models)} / 请求 {args.number} 个")
             else:
                 if logger:
                     logger.log('ERROR', 'scrape_failed')
@@ -114,8 +119,9 @@ async def main():
                 limit=args.number,
                 concurrency=args.concurrency,
                 use_logger=not args.no_log,
-                resume=not args.no_resume,
-                sort_by=args.sort_by
+                resume=args.resume,
+                sort_by=args.sort_by,
+                filter_text_models=not args.no_filter
             )
 
         if logger:

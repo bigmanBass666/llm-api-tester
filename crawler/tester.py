@@ -221,21 +221,23 @@ def save_report(report: dict, filename: str):
 
 
 async def test_top_models(limit: int = 50, concurrency: int = 5,
-                          use_logger: bool = True, resume: bool = True,
-                          sort_by: str = "popular"):
+                          use_logger: bool = True, resume: bool = False,
+                          sort_by: str = "popular",
+                          filter_text_models: bool = True):
     """测试前N个热门模型
 
     Args:
         limit: 测试的模型数量
         concurrency: 并发数
         use_logger: 是否使用日志系统
-        resume: 是否启用断点续传
+        resume: 是否启用断点续传（默认关闭）
         sort_by: 排序方式，'popular' 或 'recent'
+        filter_text_models: 是否过滤非文本模型（默认 True）
     """
     from .scraper import scrape_top_models
     from .logger import create_logger
 
-    logger = create_logger() if use_logger else None
+    logger = create_logger(resume=resume) if use_logger else None
     if logger:
         logger.log_phase('start', total_models=limit, concurrency=concurrency)
     else:
@@ -248,7 +250,8 @@ async def test_top_models(limit: int = 50, concurrency: int = 5,
     else:
         print("1. 爬取模型列表...")
 
-    models = await scrape_top_models(limit, sort_by=sort_by)
+    models = await scrape_top_models(limit, sort_by=sort_by,
+                                    filter_text_models=filter_text_models)
 
     if not models:
         if logger:
