@@ -69,7 +69,7 @@ class NvidiaScraper:
             # 分页爬取，直到达到目标数量或达到最大尝试次数
             while len(all_models) < limit and page_count < max_scroll_attempts:
                 page_count += 1
-                print(f"\n📄 爬取第 {page_count} 页... (当前: {len(all_models)}/{limit})")
+                logger.debug(f"爬取第 {page_count} 页 (当前: {len(all_models)}/{limit})")
 
                 # 记录滚动前的模型数量
                 models_before_scroll = len(all_models)
@@ -78,11 +78,11 @@ class NvidiaScraper:
                 models = await self._extract_models()
 
                 if not models:
-                    print("⚠️  无法获取模型数据，尝试备用方案...")
+                    logger.warning("无法获取模型数据，尝试备用方案")
                     models = await self._fallback_extract()
 
                 if not models:
-                    print("❌ 页面没有更多模型数据")
+                    logger.debug("页面没有更多模型数据")
                     break
 
                 # 去重（基于当前 all_models 的 ID 集合）
@@ -116,9 +116,9 @@ class NvidiaScraper:
 
                 if new_models_count == 0:
                     consecutive_no_new += 1
-                    print(f"⚠️  连续 {consecutive_no_new} 次无新模型")
+                    logger.warning(f"连续 {consecutive_no_new} 次无新模型")
                     if consecutive_no_new >= max_consecutive_no_new:
-                        print("✋ 达到最大连续无新内容次数，停止爬取")
+                        logger.info("达到最大连续无新内容次数，停止爬取")
                         break
                 else:
                     consecutive_no_new = 0  # 重置计数器
@@ -127,7 +127,7 @@ class NvidiaScraper:
                 if len(all_models) < limit:
                     scroll_success = await self._scroll_for_more()
                     if not scroll_success:
-                        print(f"⚠️  滚动未检测到新内容 (尝试 {page_count}/{max_scroll_attempts})")
+                        logger.warning(f"滚动未检测到新内容 (尝试 {page_count}/{max_scroll_attempts})")
 
             # 限制返回数量
             final_models = all_models[:limit]
@@ -232,12 +232,15 @@ class NvidiaScraper:
     async def _fetch_api_model_map(self) -> Dict[str, str]:
         """
         从 NVIDIA API 获取完整模型列表，建立短名→完整ID的映射
+        包含增强的 SSL 配置、详细错误处理和自动重试机制
 
         Returns:
             Dict[short_name, full_id] 例如: {"kimi-k2.5": "moonshotai/kimi-k2.5"}
         """
         import httpx
         import os
+        import ssl
+        import asyncio
 
         api_url = "https://integrate.api.nvidia.com/v1/models"
         api_key = os.getenv("NVIDIA_API_KEY")
@@ -245,28 +248,77 @@ class NvidiaScraper:
             raise ValueError("请设置 NVIDIA_API_KEY 环境变量以获取模型映射")
 
         model_map = {}
+        max_retries = 3
+        retry_delay = 2  # 秒
 
-        try:
-            async with httpx.AsyncClient(timeout=30, verify=False) as client:
-                headers = {"Authorization": f"Bearer {api_key}"}
-                resp = await client.get(api_url, headers=headers)
+        for attempt in range(1, max_retries + 1):
+            try:
+                logger.info(f"正在获取 API 映射表 (第 {attempt}/{max_retries} 次)...")
 
-                if resp.status_code == 200:
-                    data = resp.json()
-                    models = data.get("data", [])
+                # 创建自定义 SSL context（完全禁用证书验证）
+                ssl_context = ssl.create_default_context()
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
 
-                    for m in models:
-                        full_id = m.get("id", "")
-                        if full_id:
-                            short_name = full_id.split("/")[-1] if "/" in full_id else full_id
-                            model_map[short_name] = full_id
+                async with httpx.AsyncClient(
+                    timeout=httpx.Timeout(45.0, connect=15.0),
+                    verify=ssl_context,
+                    trust_env=True  # 使用环境变量中的代理和证书设置
+                ) as client:
+                    headers = {"Authorization": f"Bearer {api_key}"}
+                    resp = await client.get(api_url, headers=headers)
 
-                    logger.info(f"API 映射表: {len(model_map)} 个模型")
-                else:
-                    logger.warning(f"API 获取失败: {resp.status_code}")
-        except Exception as e:
-            logger.error(f"API 请求异常: {e}")
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        models = data.get("data", [])
 
+                        for m in models:
+                            full_id = m.get("id", "")
+                            if full_id:
+                                short_name = full_id.split("/")[-1] if "/" in full_id else full_id
+                                model_map[short_name] = full_id
+
+                        logger.info(f"✅ API 映射表: {len(model_map)} 个模型")
+                        return model_map  # 成功，直接返回
+                    else:
+                        logger.warning(f"API 返回错误: HTTP {resp.status_code}")
+                        if attempt < max_retries:
+                            await asyncio.sleep(retry_delay)
+                            continue
+
+            except httpx.ConnectError as e:
+                logger.warning(f"连接失败 (尝试 {attempt}/{max_retries}): {e}")
+                if attempt < max_retries:
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # 指数退避
+                    continue
+            except httpx.TimeoutException as e:
+                logger.warning(f"请求超时 (尝试 {attempt}/{max_retries}): {e}")
+                if attempt < max_retries:
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2
+                    continue
+            except httpx.HTTPStatusError as e:
+                logger.warning(f"HTTP 错误 (尝试 {attempt}/{max_retries}): {e.response.status_code}")
+                if attempt < max_retries:
+                    await asyncio.sleep(retry_delay)
+                    continue
+            except Exception as e:
+                error_type = type(e).__name__
+                logger.error(f"API 请求异常 ({error_type}) (尝试 {attempt}/{max_retries}): {e}")
+
+                # 打印详细堆栈跟踪（仅在最后一次失败时）
+                if attempt == max_retries:
+                    import traceback
+                    logger.error("API 请求最终失败，详细错误堆栈:")
+                    logger.error(traceback.format_exc())
+
+                if attempt < max_retries:
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2
+                    continue
+
+        logger.error(f"经过 {max_retries} 次尝试后仍无法获取 API 映射表")
         return model_map
 
     def _find_matching_model_id(self, short_name: str, api_map: Dict[str, str]) -> str:
@@ -379,10 +431,10 @@ class NvidiaScraper:
             has_new_content = scroll_height_after > scroll_height_before
 
             if has_new_content:
-                print(f"📜 滚动成功: 页面高度 {scroll_height_before} → {scroll_height_after}")
+                logger.debug(f"滚动成功: 页面高度 {scroll_height_before} -> {scroll_height_after}")
                 return True
             else:
-                print(f"⚠️  滚动后无新内容 (高度: {scroll_height_after})")
+                logger.debug(f"滚动后无新内容 (高度: {scroll_height_after})")
                 return False
 
         except Exception as e:

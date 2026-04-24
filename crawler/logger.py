@@ -1,13 +1,60 @@
 """
 NVIDIA 模型测试日志系统
-支持结构化 JSON Lines 日志、控制台输出、断点续传
+支持结构化 JSON Lines 日志、控制台输出、断点续传、分级日志输出
 """
 
 import json
 import os
+import logging
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any, Set
+from typing import Dict, Any, Set, Optional
+
+
+def get_logger(name: str = __name__, log_file: Optional[str] = None, level: int = logging.DEBUG) -> logging.Logger:
+    """
+    获取模块级 Logger 实例（标准 Python logging）
+
+    Args:
+        name: 模块名称，通常使用 __name__
+        log_file: 可选的日志文件路径
+        level: 日志级别
+
+    Returns:
+        配置好的 Logger 实例
+
+    使用示例:
+        from crawler.logger import get_logger
+        logger = get_logger(__name__)
+        logger.debug("调试信息")
+        logger.info("一般信息")
+        logger.warning("警告信息")
+        logger.error("错误信息")
+    """
+    logger = logging.getLogger(name)
+
+    if not logger.handlers:
+        logger.setLevel(level)
+
+        formatter = logging.Formatter(
+            '%(asctime)s | %(levelname)-8s | %(name)s | %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.WARNING)
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
+
+        if log_file:
+            log_dir = Path(log_file).parent
+            log_dir.mkdir(exist_ok=True)
+            file_handler = logging.FileHandler(log_file, encoding='utf-8')
+            file_handler.setLevel(level)
+            file_handler.setFormatter(formatter)
+            logger.addHandler(file_handler)
+
+    return logger
 
 
 class ModelTestLogger:
