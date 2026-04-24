@@ -55,6 +55,9 @@ async def main():
                        help="日志目录 (默认: logs)")
     parser.add_argument("--no-resume", action="store_true",
                        help="禁用断点续传（重新测试所有模型）")
+    parser.add_argument("--filter-text", action="store_true",
+                       default=False,
+                       help="只爬取和测试文字模型（过滤语音、图像、嵌入等非文字模型）")
 
     args = parser.parse_args()
 
@@ -66,6 +69,7 @@ async def main():
     print(f"   超时时间: {args.timeout}s")
     print(f"   排序方式: {args.sort_by}")
     print(f"   仅爬取: {args.scrape_only}")
+    print(f"   过滤非文字模型: {'✅ 启用' if args.filter_text else '❌ 禁用'}")
     print()
 
     try:
@@ -89,7 +93,7 @@ async def main():
             else:
                 print("🔍 仅爬取模型列表...")
 
-            models = await scrape_top_models(args.number, sort_by=args.sort_by)
+            models = await scrape_top_models(args.number, sort_by=args.sort_by, filter_text_models=args.filter_text)
 
             if models:
                 if logger:

@@ -15,12 +15,33 @@ from .logger import get_logger
 
 logger = get_logger(__name__)
 
+# 文字模型 Category Tag 白名单
+TEXT_MODEL_CATEGORIES = {
+    'text-generation', 'chat', 'coding', 'reasoning',
+    'language generation', 'instruction following',
+    'long-context', 'agentic', 'tool calling', 'moe'
+}
+
+# 非文字模型 ID 关键词黑名单
+NON_TEXT_KEYWORDS = [
+    'whisper', 'flux', 'parakeet', 'stable-diffusion',
+    'nemoretriever', 'esm2', 'nvclip', 'nemotron-parse',
+    'riva-translate', 'magpie-tts', 'genmol', 'proteinmpnn',
+    'rfdiffusion', 'shieldgemma', 'nemoguard', 'cosmos-',
+    'nv-grounding', 'starcoder2', 'openfold', 'ipd/',
+    'llama-nemotron-embed', 'nv-embed', 'nemotron-asr',
+    'nemotron-ocr', 'nemotron-table', 'nemotron-page',
+    'nemotron-graphic', 'parakeet-ctc', 'synthetic-video',
+    'active-speaker', 'relighting', 'lipsync'
+]
+
 
 class NvidiaScraper:
     """NVIDIA 模型爬虫"""
 
-    def __init__(self, headless: bool = True):
+    def __init__(self, headless: bool = True, filter_text_models: bool = False):
         self.headless = headless
+        self.filter_text_models = filter_text_models
         self.browser = None
         self.page = None
 
@@ -103,6 +124,7 @@ class NvidiaScraper:
             max_page_turns = 10  # 最大翻页次数限制（防止无限循环）
             consecutive_no_new = 0
             max_consecutive_no_new = 3
+            filtered_count = 0  # 统计过滤的非文字模型数量
 
             # 一次性获取 API 模型映射表（避免重复请求）
             api_model_map = await self._fetch_api_model_map()
@@ -157,6 +179,12 @@ class NvidiaScraper:
                 final_models = []
                 for m in standardized_models:
                     if m.id not in seen_ids:
+                        # Task 4: 过滤非文字模型（如果启用）
+                        if self.filter_text_models and not m.is_text_model:
+                            filtered_count += 1
+                            logger.info(f"  🚫 过滤非文字模型: {m.id} (category={m.category})")
+                            continue
+
                         final_models.append(m)
                         seen_ids.add(m.id)
 
@@ -185,6 +213,11 @@ class NvidiaScraper:
 
             # 限制返回数量
             final_models = all_models[:limit]
+
+            # 输出过滤统计
+            if self.filter_text_models and filtered_count > 0:
+                print(f"🚫 已过滤 {filtered_count} 个非文字模型")
+
             print(f"✅ 成功获取 {len(final_models)} 个模型（去重后）")
             return final_models
 
@@ -344,8 +377,31 @@ class NvidiaScraper:
                     except Exception:
                         pass
 
+                    # Task 2: 提取 Category Tag（从卡片 innerText 第5行）
+                    category = None
+                    try:
+                        full_text = await card.inner_text()
+                        lines = [line.strip() for line in full_text.split('\n') if line.strip()]
+
+                        # lines 结构:
+                        # [0] = Vendor (如 "NVIDIA", "Qwen")
+                        # [1] = Badge (如 "Downloadable", "Free Endpoint")
+                        # [2] = Model Name (如 "qwen3-coder-480b-a35b-instruct")
+                        # [3] = Description (模型描述文本)
+                        # [4] = Category Tag ← 目标!
+                        # [5+] = Stats (+N, XX.XM, Xmo)
+
+                        if len(lines) >= 5:
+                            category = lines[4].lower()
+                            logger.debug(f"  模型 {model_name}: category={category}")
+                    except Exception as e:
+                        logger.debug(f"  提取 Category Tag 失败: {e}")
+
                     # 确定最终的模型 ID（优先使用完整 ID）
                     final_id = full_model_id if full_model_id else model_name
+
+                    # 判断是否为文字模型
+                    is_text = self._is_text_model_from_category(category, final_id)
 
                     model = ModelInfo(
                         id=final_id,
@@ -357,7 +413,9 @@ class NvidiaScraper:
                         is_downloadable=downloadable,
                         is_free_endpoint=free_endpoint,
                         tags=tags,
-                        description=description
+                        description=description,
+                        category=category,
+                        is_text_model=is_text
                     )
                     models.append(model)
 
@@ -375,6 +433,38 @@ class NvidiaScraper:
             logger.error(f"提取模型失败: {e}")
 
         return models
+
+    def _is_text_model_from_category(self, category: Optional[str], model_id: str) -> bool:
+        """判断是否为文字模型
+
+        使用双重策略:
+        1. 优先根据 Category Tag 白名单判断
+        2. 其次根据模型 ID 黑名单关键词判断
+
+        Args:
+            category: 模型分类标签（如 text-generation, embedding）
+            model_id: 模型ID
+
+        Returns:
+            bool: 是否为文字模型
+        """
+        # 策略1: 基于 Category Tag 判断
+        if category:
+            if category in TEXT_MODEL_CATEGORIES:
+                return True
+            # 明确的非文字类型标签
+            if any(kw in category for kw in ['embedding', 'extraction', 'speech', 'asr', 'tts', 'vision-language']):
+                return False
+
+        # 策略2: 基于模型 ID 关键词兜底判断
+        model_id_lower = model_id.lower()
+        for keyword in NON_TEXT_KEYWORDS:
+            if keyword in model_id_lower:
+                logger.debug(f"  模型 {model_id} 匹配非文字关键词: {keyword}")
+                return False
+
+        # 默认认为是文字模型
+        return True
 
     async def _fetch_api_model_map(self) -> Dict[str, str]:
         """
@@ -722,14 +812,15 @@ class NvidiaScraper:
             return {"id": model_short_name, "code": None, "url": f"https://build.nvidia.com/{model_short_name}"}
 
 
-async def scrape_top_models(limit: int = 50, sort_by: str = "popular") -> List[ModelInfo]:
+async def scrape_top_models(limit: int = 50, sort_by: str = "popular", filter_text_models: bool = False) -> List[ModelInfo]:
     """爬取前N个热门模型
 
     Args:
         limit: 爬取的模型数量
         sort_by: 排序方式，'popular' 或 'recent'
+        filter_text_models: 是否只爬取文字模型（过滤语音、图像、嵌入等非文字模型）
     """
-    scraper = NvidiaScraper(headless=True)
+    scraper = NvidiaScraper(headless=True, filter_text_models=filter_text_models)
     try:
         # 根据排序方式构建 URL（使用pageSize=96减少分页次数）
         # NVIDIA 默认每页24个模型，设置pageSize=96可将总页数从8页降至2页

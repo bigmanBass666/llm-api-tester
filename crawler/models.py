@@ -25,6 +25,8 @@ class ModelInfo:
     is_free_endpoint: bool = True    # 是否有免费端点（大多数NVIDIA模型都是免费的）
     tags: List[str] = None           # 其他标签（context window, use case 等）
     description: Optional[str] = None  # 模型描述文本
+    category: Optional[str] = None   # 模型分类标签（如 text-generation, embedding）
+    is_text_model: bool = True       # 是否为文字模型（默认 True）
 
     @property
     def status_icon(self) -> str:
@@ -112,6 +114,8 @@ class ModelStore:
                 "is_downloadable": m.is_downloadable,
                 "is_free_endpoint": m.is_free_endpoint,
                 "tags": m.tags or [],
+                "category": m.category,
+                "is_text_model": m.is_text_model,
                 "is_callable": m.test_status == "success",  # 是否能被正常调用
                 "error": m.error_message[:100] if m.error_message else None,
             }
