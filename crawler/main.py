@@ -11,6 +11,10 @@ import os
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# 加载环境变量（从 .env.local 等文件）
+from src.config_loader import ConfigLoader
+ConfigLoader.load_env()
+
 from crawler.tester import test_top_models
 from crawler.scraper import scrape_top_models
 from crawler.models import ModelStore

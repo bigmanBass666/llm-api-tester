@@ -1,0 +1,231 @@
+{
+  "summary": {
+    "total": 24,
+    "success": 17,
+    "failed": 7,
+    "timeout": 0,
+    "testing": 0,
+    "pending": 0
+  },
+  "successful_models": [
+    {
+      "rank": 45,
+      "id": "google/gemma-3-27b-it",
+      "response_time": 0.7245385646820068,
+      "token_usage": 17,
+      "tags": [
+        "free"
+      ]
+    },
+    {
+      "rank": 41,
+      "id": "nvidia/llama-3.1-nemotron-nano-vl-8b-v1",
+      "response_time": 0.8085434436798096,
+      "token_usage": 26,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 43,
+      "id": "mistralai/mistral-small-4-119b-2603",
+      "response_time": 0.8660898208618164,
+      "token_usage": 23,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 39,
+      "id": "openai/gpt-oss-20b",
+      "response_time": 0.9142136573791504,
+      "token_usage": 106,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 25,
+      "id": "meta/llama-3.3-70b-instruct",
+      "response_time": 0.9510464668273926,
+      "token_usage": 43,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 7,
+      "id": "qwen/qwen3-next-80b-a3b-instruct",
+      "response_time": 1.0053160190582275,
+      "token_usage": 15,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 27,
+      "id": "meta/llama-4-maverick-17b-128e-instruct",
+      "response_time": 1.1460087299346924,
+      "token_usage": 17,
+      "tags": [
+        "free"
+      ]
+    },
+    {
+      "rank": 11,
+      "id": "meta/llama-3.1-8b-instruct",
+      "response_time": 1.48191237449646,
+      "token_usage": 43,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 9,
+      "id": "moonshotai/kimi-k2-instruct",
+      "response_time": 1.5297808647155762,
+      "token_usage": 23,
+      "tags": [
+        "free"
+      ]
+    },
+    {
+      "rank": 13,
+      "id": "moonshotai/kimi-k2-instruct-0905",
+      "response_time": 1.592904806137085,
+      "token_usage": 32,
+      "tags": [
+        "free"
+      ]
+    },
+    {
+      "rank": 31,
+      "id": "stepfun-ai/step-3.5-flash",
+      "response_time": 3.9119253158569336,
+      "token_usage": 67,
+      "tags": [
+        "free"
+      ]
+    },
+    {
+      "rank": 1,
+      "id": "nvidia/nemotron-3-super-120b-a12b",
+      "response_time": 8.599801540374756,
+      "token_usage": 59,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 37,
+      "id": "qwen/qwen3.5-122b-a10b",
+      "response_time": 9.960242986679077,
+      "token_usage": 19,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 23,
+      "id": "minimaxai/minimax-m2.5",
+      "response_time": 12.290844440460205,
+      "token_usage": 69,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 5,
+      "id": "openai/gpt-oss-120b",
+      "response_time": 21.493584394454956,
+      "token_usage": 110,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 3,
+      "id": "moonshotai/kimi-k2.5",
+      "response_time": 36.19327402114868,
+      "token_usage": 49,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 19,
+      "id": "nvidia/nemotron-3-nano-30b-a3b",
+      "response_time": 64.75792264938354,
+      "token_usage": 65,
+      "tags": [
+        "downloadable"
+      ]
+    }
+  ],
+  "failed_models": [
+    {
+      "rank": 15,
+      "id": "qwen/qwen3.5-397b-a17b",
+      "status": "failed",
+      "error": "Request timed out.",
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 17,
+      "id": "deepseek-ai/deepseek-v3.2",
+      "status": "failed",
+      "error": "Request timed out.",
+      "tags": [
+        "free"
+      ]
+    },
+    {
+      "rank": 21,
+      "id": "nvidia/nv-embedqa-e5-v5",
+      "status": "failed",
+      "error": "404 page not found",
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 29,
+      "id": "baai/bge-m3",
+      "status": "failed",
+      "error": "404 page not found",
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 33,
+      "id": "deepseek-ai/deepseek-v3.1-terminus",
+      "status": "failed",
+      "error": "Request timed out.",
+      "tags": [
+        "free"
+      ]
+    },
+    {
+      "rank": 35,
+      "id": "nvidia/llama-nemotron-embed-vl-1b-v2",
+      "status": "failed",
+      "error": "404 page not found",
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 47,
+      "id": "qwen2.5-7b-instruct",
+      "status": "failed",
+      "error": "404 page not found",
+      "tags": [
+        "downloadable"
+      ]
+    }
+  ],
+  "timestamp": "2026-04-24 19:18:59"
+}
