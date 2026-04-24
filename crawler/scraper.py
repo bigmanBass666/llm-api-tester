@@ -114,11 +114,23 @@ class NvidiaScraper:
                 page_count += 1
                 logger.info(f"📄 正在爬取第 {page_count} 页 (当前: {len(all_models)}/{limit})")
 
-                # 尝试多种方式获取模型数据
+                # 提取模型数据（带详细诊断）
                 models = await self._extract_models()
 
                 if not models:
-                    logger.warning("无法获取模型数据，尝试备用方案")
+                    logger.warning("⚠️ 主提取方法返回空列表，尝试备用方案")
+                    # 诊断：检查页面状态
+                    try:
+                        page_title = await self.page.title()
+                        card_count = await self.page.query_selector_all("[data-testid='nv-card-root']")
+                        body_text = await self.page.evaluate("document.body.innerText")
+                        logger.warning(f"  页面标题: {page_title}")
+                        logger.warning(f"  nv-card-root 元素数: {len(card_count)}")
+                        logger.warning(f"  页面文本长度: {len(body_text)} 字符")
+                        logger.warning(f"  页面文本前200字: {body_text[:200]}")
+                    except Exception as diag_e:
+                        logger.warning(f"  诊断信息获取失败: {diag_e}")
+
                     models = await self._fallback_extract()
 
                 if not models:
