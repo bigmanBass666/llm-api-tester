@@ -11,6 +11,9 @@ from typing import List, Optional, Dict
 from playwright.async_api import async_playwright
 
 from .models import ModelInfo
+from .logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class NvidiaScraper:
@@ -56,14 +59,20 @@ class NvidiaScraper:
 
             all_models = []
             page_count = 0
+            max_scroll_attempts = 20
+            consecutive_no_new = 0
+            max_consecutive_no_new = 3
 
             # 一次性获取 API 模型映射表（避免重复请求）
             api_model_map = await self._fetch_api_model_map()
 
-            # 分页爬取，直到达到目标数量
-            while len(all_models) < limit:
+            # 分页爬取，直到达到目标数量或达到最大尝试次数
+            while len(all_models) < limit and page_count < max_scroll_attempts:
                 page_count += 1
-                print(f"📄 爬取第 {page_count} 页...")
+                print(f"\n📄 爬取第 {page_count} 页... (当前: {len(all_models)}/{limit})")
+
+                # 记录滚动前的模型数量
+                models_before_scroll = len(all_models)
 
                 # 尝试多种方式获取模型数据
                 models = await self._extract_models()
@@ -83,7 +92,6 @@ class NvidiaScraper:
                 # ⚡ 动态映射：通过 NVIDIA API 获取完整ID列表
                 # 这一步会把短名称（如 "kimi-k2.5"）转换成完整ID（如 "moonshotai/kimi-k2.5"）
                 standardized_models = []
-                api_model_map = await self._fetch_api_model_map()
 
                 for model in new_models:
                     full_id = self._find_matching_model_id(model.id, api_model_map)
@@ -101,14 +109,25 @@ class NvidiaScraper:
                         seen_ids.add(m.id)
 
                 all_models.extend(final_models)
-                print(f"📊 当前总计: {len(all_models)} 个模型")
+
+                # 检测是否有新模型加载
+                new_models_count = len(final_models)
+                print(f"📊 本页新增: {new_models_count} 个模型 | 总计: {len(all_models)} 个模型")
+
+                if new_models_count == 0:
+                    consecutive_no_new += 1
+                    print(f"⚠️  连续 {consecutive_no_new} 次无新模型")
+                    if consecutive_no_new >= max_consecutive_no_new:
+                        print("✋ 达到最大连续无新内容次数，停止爬取")
+                        break
+                else:
+                    consecutive_no_new = 0  # 重置计数器
 
                 # 尝试滚动加载更多
                 if len(all_models) < limit:
                     scroll_success = await self._scroll_for_more()
                     if not scroll_success:
-                        print("⚠️  无法加载更多模型")
-                        break
+                        print(f"⚠️  滚动未检测到新内容 (尝试 {page_count}/{max_scroll_attempts})")
 
             # 限制返回数量
             final_models = all_models[:limit]
@@ -116,7 +135,7 @@ class NvidiaScraper:
             return final_models
 
         except Exception as e:
-            print(f"❌ 爬取失败: {e}")
+            logger.error(f"爬取失败: {e}")
             return []
 
     async def _extract_models(self) -> List[ModelInfo]:
@@ -129,7 +148,7 @@ class NvidiaScraper:
                 "div[class*='model'], div[class*='card'], article[class*='model'], [data-testid*='model']"
             )
 
-            print(f"🔍 找到 {len(model_cards)} 个模型卡片")
+            logger.debug(f"找到 {len(model_cards)} 个模型卡片")
 
             for i, card in enumerate(model_cards[:50], 1):
                 try:
@@ -199,14 +218,14 @@ class NvidiaScraper:
 
                     # 打印标签信息（调试）
                     if tags:
-                        print(f"  Model #{i}: {model_name} - Tags: {tags}")
+                        logger.debug(f"Model #{i}: {model_name} - Tags: {tags}")
 
                 except Exception as e:
-                    print(f"⚠️  解析卡片 {i} 失败: {e}")
+                    logger.warning(f"解析卡片 {i} 失败: {e}")
                     continue
 
         except Exception as e:
-            print(f"⚠️  提取模型失败: {e}")
+            logger.error(f"提取模型失败: {e}")
 
         return models
 
@@ -239,15 +258,14 @@ class NvidiaScraper:
                     for m in models:
                         full_id = m.get("id", "")
                         if full_id:
-                            # 提取短名：从 "vendor/model-name" 中取 "model-name"
                             short_name = full_id.split("/")[-1] if "/" in full_id else full_id
                             model_map[short_name] = full_id
 
-                    print(f"🌐 API 映射表: {len(model_map)} 个模型")
+                    logger.info(f"API 映射表: {len(model_map)} 个模型")
                 else:
-                    print(f"⚠️  API 获取失败: {resp.status_code}")
+                    logger.warning(f"API 获取失败: {resp.status_code}")
         except Exception as e:
-            print(f"⚠️  API 请求异常: {e}")
+            logger.error(f"API 请求异常: {e}")
 
         return model_map
 
@@ -306,7 +324,7 @@ class NvidiaScraper:
                         models.append(model)
 
         except Exception as e:
-            print(f"⚠️  备用方法失败: {e}")
+            logger.warning(f"备用方法失败: {e}")
 
         # 如果还是没找到，使用已知的热门模型
         if not models:
@@ -339,32 +357,36 @@ class NvidiaScraper:
         return models
 
     async def _scroll_for_more(self) -> bool:
-        """滚动页面以加载更多模型"""
-        try:
-            # 滚动到页面底部
-            await self.page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+        """滚动页面以加载更多模型（增强版）
 
-            # 等待加载
+        Returns:
+            bool: 是否成功触发加载（不依赖loading indicator）
+        """
+        try:
+            scroll_height_before = await self.page.evaluate("document.body.scrollHeight")
+
+            # 策略：多次小幅度滚动 + 等待（而非一次性滚到底部）
+            for scroll_step in range(3):
+                await self.page.evaluate("window.scrollBy(0, window.innerHeight * 0.8)")
+                await self.page.wait_for_timeout(1500)
+
+            # 额外等待，确保动态内容加载
             await self.page.wait_for_timeout(2000)
 
-            # 检查是否有加载指示器
-            loading_selectors = [
-                "[class*='loading']",
-                "[class*='spinner']",
-                "[class*='progress']",
-                "[data-testid*='loading']"
-            ]
+            scroll_height_after = await self.page.evaluate("document.body.scrollHeight")
 
-            for selector in loading_selectors:
-                if await self.page.query_selector(selector):
-                    # 等待加载完成
-                    await self.page.wait_for_timeout(3000)
-                    return True
+            # 检测是否有新内容（scrollHeight变化说明加载了新内容）
+            has_new_content = scroll_height_after > scroll_height_before
 
-            return False
+            if has_new_content:
+                print(f"📜 滚动成功: 页面高度 {scroll_height_before} → {scroll_height_after}")
+                return True
+            else:
+                print(f"⚠️  滚动后无新内容 (高度: {scroll_height_after})")
+                return False
 
         except Exception as e:
-            print(f"⚠️  滚动失败: {e}")
+            logger.warning(f"滚动失败: {e}")
             return False
 
     async def _get_model_details(self, model_short_name: str) -> dict:
@@ -407,7 +429,7 @@ class NvidiaScraper:
             return {"id": model_short_name, "code": None, "url": detail_url}
 
         except Exception as e:
-            print(f"⚠️  获取模型详情失败 {model_short_name}: {e}")
+            logger.warning(f"获取模型详情失败 {model_short_name}: {e}")
             return {"id": model_short_name, "code": None, "url": f"https://build.nvidia.com/{model_short_name}"}
 
 
