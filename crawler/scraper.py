@@ -42,15 +42,26 @@ class NvidiaScraper:
         if self.browser:
             await self.browser.close()
 
-    async def scrape_models(self, url: str = "https://build.nvidia.com/models?orderBy=weightPopular%3ADESC",
-                          limit: int = 50) -> List[ModelInfo]:
-        """爬取模型列表（支持分页）"""
-        print(f"🚀 开始爬取: {url} (目标: {limit} 个模型)")
+    async def scrape_models(self, url: str = "https://build.nvidia.com/models?orderBy=weightPopular%3ADESC&pageSize=96",
+                          limit: int = 50, page_size: int = 96) -> List[ModelInfo]:
+        """爬取模型列表（支持分页）
+
+        Args:
+            url: 页面URL（已包含pageSize参数）
+            limit: 目标模型数量
+            page_size: 每页显示数量（默认96，可减少HTTP请求次数）
+        """
+        print(f"🚀 开始爬取: {url} (目标: {limit} 个模型, 每页: {page_size} 个)")
 
         if not self.page:
             await self.init_browser()
 
         try:
+            # 确保URL包含pageSize参数（如果未指定则添加）
+            if "pageSize" not in url:
+                url = f"{url}&pageSize={page_size}" if "?" in url else f"{url}?pageSize={page_size}"
+                logger.debug(f"自动添加pageSize参数: {url}")
+
             # 访问页面
             await self.page.goto(url, wait_until="networkidle")
 
@@ -59,20 +70,19 @@ class NvidiaScraper:
 
             all_models = []
             page_count = 0
-            max_scroll_attempts = 20
+            max_page_turns = 10  # 最大翻页次数限制（防止无限循环）
             consecutive_no_new = 0
             max_consecutive_no_new = 3
 
             # 一次性获取 API 模型映射表（避免重复请求）
             api_model_map = await self._fetch_api_model_map()
 
-            # 分页爬取，直到达到目标数量或达到最大尝试次数
-            while len(all_models) < limit and page_count < max_scroll_attempts:
+            # 分页爬取主循环
+            # 使用分页模式而非滚动模式，因为 NVIDIA 网站使用传统分页系统
+            # 设置 pageSize=96 后，总页数大幅减少（如192个模型只需2-3页）
+            while len(all_models) < limit and page_count < max_page_turns:
                 page_count += 1
-                logger.debug(f"爬取第 {page_count} 页 (当前: {len(all_models)}/{limit})")
-
-                # 记录滚动前的模型数量
-                models_before_scroll = len(all_models)
+                logger.info(f"📄 正在爬取第 {page_count} 页 (当前: {len(all_models)}/{limit})")
 
                 # 尝试多种方式获取模型数据
                 models = await self._extract_models()
@@ -112,7 +122,7 @@ class NvidiaScraper:
 
                 # 检测是否有新模型加载
                 new_models_count = len(final_models)
-                print(f"📊 本页新增: {new_models_count} 个模型 | 总计: {len(all_models)} 个模型")
+                print(f"📊 第{page_count}页新增: {new_models_count} 个模型 | 总计: {len(all_models)} 个模型")
 
                 if new_models_count == 0:
                     consecutive_no_new += 1
@@ -123,11 +133,13 @@ class NvidiaScraper:
                 else:
                     consecutive_no_new = 0  # 重置计数器
 
-                # 尝试滚动加载更多
+                # 如果还未达到目标数量，尝试翻到下一页
                 if len(all_models) < limit:
-                    scroll_success = await self._scroll_for_more()
-                    if not scroll_success:
-                        logger.warning(f"滚动未检测到新内容 (尝试 {page_count}/{max_scroll_attempts})")
+                    logger.debug(f"尝试翻到下一页 (已翻 {page_count}/{max_page_turns} 页)")
+                    page_success = await self._go_to_next_page()
+                    if not page_success:
+                        logger.warning(f"翻页失败或已到达末页 (共翻 {page_count} 页)")
+                        break
 
             # 限制返回数量
             final_models = all_models[:limit]
@@ -408,38 +420,90 @@ class NvidiaScraper:
 
         return models
 
+    async def _go_to_next_page(self) -> bool:
+        """点击下一页按钮进行翻页
+
+        NVIDIA 网站使用传统分页系统，通过点击"下一页"按钮进行翻页。
+        相比滚动加载，这种方式更可靠且可预测。
+
+        Returns:
+            bool: 是否成功翻页（True=成功翻页, False=已到末页或失败）
+        """
+        try:
+            # 定位下一页按钮（使用 aria-label 属性）
+            next_button = await self.page.query_selector('button[aria-label="Go to next page"]')
+
+            if not next_button:
+                logger.debug("未找到下一页按钮（可能已到达最后一页）")
+                return False
+
+            # 检查按钮是否被禁用
+            is_disabled = await next_button.evaluate("el => el.disabled || el.getAttribute('aria-disabled') === 'true'")
+            if is_disabled:
+                logger.debug("下一页按钮已禁用（已到达最后一页）")
+                return False
+
+            # 点击下一页按钮
+            logger.info("点击下一页按钮...")
+            await next_button.click()
+
+            # 等待页面加载完成（2-3秒让新内容渲染）
+            await self.page.wait_for_timeout(2500)
+
+            # 额外等待网络空闲
+            try:
+                await self.page.wait_for_load_state("networkidle", timeout=5000)
+            except Exception:
+                pass  # 超时也继续
+
+            logger.info("✅ 成功翻页")
+            return True
+
+        except Exception as e:
+            logger.warning(f"翻页操作失败: {e}")
+            return False
+
     async def _scroll_for_more(self) -> bool:
-        """滚动页面以加载更多模型（增强版）
+        """滚动页面以加载更多模型（增强版）- 已废弃，改用 _go_to_next_page()
+
+        保留此方法作为备用方案，但主循环已切换到分页模式。
+        如果未来 NVIDIA 网站改回无限滚动模式，可以取消注释恢复此方法。
 
         Returns:
             bool: 是否成功触发加载（不依赖loading indicator）
         """
-        try:
-            scroll_height_before = await self.page.evaluate("document.body.scrollHeight")
+        # ===== 以下实现已废弃，改用分页模式 =====
+        # try:
+        #     scroll_height_before = await self.page.evaluate("document.body.scrollHeight")
+        #
+        #     # 策略：多次小幅度滚动 + 等待（而非一次性滚到底部）
+        #     for scroll_step in range(3):
+        #         await self.page.evaluate("window.scrollBy(0, window.innerHeight * 0.8)")
+        #         await self.page.wait_for_timeout(1500)
+        #
+        #     # 额外等待，确保动态内容加载
+        #     await self.page.wait_for_timeout(2000)
+        #
+        #     scroll_height_after = await self.page.evaluate("document.body.scrollHeight")
+        #
+        #     # 检测是否有新内容（scrollHeight变化说明加载了新内容）
+        #     has_new_content = scroll_height_after > scroll_height_before
+        #
+        #     if has_new_content:
+        #         logger.debug(f"滚动成功: 页面高度 {scroll_height_before} -> {scroll_height_after}")
+        #         return True
+        #     else:
+        #         logger.debug(f"滚动后无新内容 (高度: {scroll_height_after})")
+        #         return False
+        #
+        # except Exception as e:
+        #     logger.warning(f"滚动失败: {e}")
+        #     return False
+        # ===== 废弃代码结束 =====
 
-            # 策略：多次小幅度滚动 + 等待（而非一次性滚到底部）
-            for scroll_step in range(3):
-                await self.page.evaluate("window.scrollBy(0, window.innerHeight * 0.8)")
-                await self.page.wait_for_timeout(1500)
-
-            # 额外等待，确保动态内容加载
-            await self.page.wait_for_timeout(2000)
-
-            scroll_height_after = await self.page.evaluate("document.body.scrollHeight")
-
-            # 检测是否有新内容（scrollHeight变化说明加载了新内容）
-            has_new_content = scroll_height_after > scroll_height_before
-
-            if has_new_content:
-                logger.debug(f"滚动成功: 页面高度 {scroll_height_before} -> {scroll_height_after}")
-                return True
-            else:
-                logger.debug(f"滚动后无新内容 (高度: {scroll_height_after})")
-                return False
-
-        except Exception as e:
-            logger.warning(f"滚动失败: {e}")
-            return False
+        # 返回 False 表示此方法已不可用，应使用 _go_to_next_page()
+        logger.warning("_scroll_for_more() 已废弃，请使用 _go_to_next_page() 进行翻页")
+        return False
 
     async def _get_model_details(self, model_short_name: str) -> dict:
         """获取模型详情（包括完整ID和调用代码）"""
@@ -494,11 +558,12 @@ async def scrape_top_models(limit: int = 50, sort_by: str = "popular") -> List[M
     """
     scraper = NvidiaScraper(headless=True)
     try:
-        # 根据排序方式构建 URL
+        # 根据排序方式构建 URL（使用pageSize=96减少分页次数）
+        # NVIDIA 默认每页24个模型，设置pageSize=96可将总页数从8页降至2页
         if sort_by == "popular":
-            url = "https://build.nvidia.com/models?orderBy=weightPopular%3ADESC"
+            url = "https://build.nvidia.com/models?orderBy=weightPopular%3ADESC&pageSize=96"
         else:  # recent
-            url = "https://build.nvidia.com/models"
+            url = "https://build.nvidia.com/models?pageSize=96"
 
         models = await scraper.scrape_models(limit=limit, url=url)
         return models
