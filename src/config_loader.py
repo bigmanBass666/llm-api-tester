@@ -131,7 +131,7 @@ class ConfigLoader:
         """
         from .platform_registry import PlatformRegistry
 
-        registry = PlatformRegistry.get_instance()
+        registry = PlatformRegistry()
         platform_info = registry.get_platform_info(platform)
 
         if not platform_info:

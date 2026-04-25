@@ -72,6 +72,7 @@ class ModelTester:
         }
 
         try:
+            start_time = time.time()
             client = OpenAI(
                 base_url=self.base_url,
                 api_key=self.api_key,
@@ -88,7 +89,6 @@ class ModelTester:
                 stream=True
             )
 
-            elapsed = time.time() - time.time()  # 重置计时
             start_time = time.time()
             full_content = ""
             reasoning_content = ""
@@ -129,7 +129,7 @@ class ModelTester:
             return model
 
         except asyncio.TimeoutError:
-            elapsed = time.time() - time.time()
+            elapsed = time.time() - start_time
             model.test_status = "timeout"
             model.response_time = elapsed
             model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -144,7 +144,7 @@ class ModelTester:
             return model
 
         except Exception as e:
-            elapsed = time.time() - time.time()
+            elapsed = time.time() - start_time
             model.test_status = "failed"
             model.response_time = elapsed
             model.error_message = str(e)[:500]
@@ -472,11 +472,6 @@ async def test_top_models(limit: int = 50, concurrency: int = 5,
             print(f"\n🏆 最快模型:")
             fastest = report['successful_models'][0]
             print(f"   #{fastest['rank']} {fastest['id']} - {fastest['response_time']:.2f}s")
-
-
-if __name__ == "__main__":
-    # 测试
-    asyncio.run(test_top_models(10, 3))
 
 
 if __name__ == "__main__":
