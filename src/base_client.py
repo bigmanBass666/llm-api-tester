@@ -1,116 +1,57 @@
-"""
-API 客户端基类
-定义统一接口，所有平台客户端需继承此类
+"""DEPRECATED: 此模块的基类将被 platforms.base.base_client.BasePlatformClient 取代
+
+新的代码应使用:
+- 数据模型: from src.models import ModelInfo, ChatMessage, TestResult, TestReport
+- 客户端基类: from platforms.base.base_client import BasePlatformClient
+
+此文件保留仅为了向后兼容。
 """
 
+import warnings
 from abc import ABC, abstractmethod
-from typing import Optional, List, Dict, Any, Iterator
-from dataclasses import dataclass
+from typing import Iterator, List
 
-
-@dataclass
-class ModelInfo:
-    """模型信息"""
-    id: str  # 模型标识
-    name: str  # 显示名称
-    platform: str  # 所属平台
-    is_free: bool = True  # 是否免费
-    is_reasoning: bool = False  # 是否推理模型
-    max_tokens: int = 4096  # 最大输出token
-    context_window: int = 128000  # 上下文窗口大小
-    description: str = ""  # 模型描述
-
-
-@dataclass
-class ChatMessage:
-    """聊天消息"""
-    role: str  # system, user, assistant
-    content: str
+from src.models import ModelInfo, ChatMessage
 
 
 class BaseClient(ABC):
-    """API 客户端基类"""
-
-    # 子类需要设置的平台标识
+    """DEPRECATED: 使用 platforms.base.base_client.BasePlatformClient 替代"""
+    
     platform_name: str = "base"
     platform_display_name: str = "Base"
 
-    def __init__(self, api_key: str, base_url: Optional[str] = None, **kwargs):
-        """
-        初始化客户端
-
-        Args:
-            api_key: API 密钥
-            base_url: API 基础 URL（可选）
-            **kwargs: 其他配置参数
-        """
+    def __init__(self, api_key: str = None, base_url: str = None, **kwargs):
         self.api_key = api_key
-        self.base_url = base_url
-        self.config = kwargs
+        self.base_url = base_url or getattr(self, 'BASE_URL', None)
+        warnings.warn(
+            "BaseClient is deprecated. Use BasePlatformClient from platforms.base.base_client instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
 
     @abstractmethod
-    def chat(
-        self,
-        model: str,
-        messages: List[ChatMessage],
-        **kwargs
-    ) -> str:
-        """
-        发送聊天请求
-
-        Args:
-            model: 模型标识
-            messages: 消息列表
-            **kwargs: 其他参数（temperature, top_p, max_tokens 等）
-
-        Returns:
-            模型回复文本
-        """
+    def chat(self, model: str, messages: List[ChatMessage], **kwargs) -> str:
+        """发送聊天请求"""
         pass
 
     @abstractmethod
-    def chat_stream(
-        self,
-        model: str,
-        messages: List[ChatMessage],
-        **kwargs
-    ) -> Iterator[str]:
-        """
-        流式聊天请求
-
-        Args:
-            model: 模型标识
-            messages: 消息列表
-            **kwargs: 其他参数
-
-        Yields:
-            回复片段
-        """
+    def chat_stream(self, model: str, messages: List[ChatMessage], **kwargs) -> Iterator[str]:
+        """流式聊天"""
         pass
 
     @abstractmethod
     def list_models(self) -> List[ModelInfo]:
-        """
-        获取可用模型列表
-
-        Returns:
-            模型信息列表
-        """
+        """列出可用模型"""
         pass
 
     @abstractmethod
     def test_connection(self) -> bool:
-        """
-        测试连接
-
-        Returns:
-            连接是否成功
-        """
+        """测试连接"""
         pass
 
     def close(self):
-        """关闭客户端（子类可重写）"""
+        """关闭连接"""
         pass
 
-    def __repr__(self) -> str:
-        return f"<{self.platform_display_name}Client: {self.base_url or 'default'}>"
+    def __repr__(self):
+        return f"<{self.__class__.__name__}(platform={self.platform_name})>"
