@@ -9,7 +9,6 @@ import httpx
 from typing import List, Optional
 
 from .models import ModelInfo, ModelStore, is_reasoning_model, get_reasoning_effort
-from src.models import ChatMessage
 from .logger import ModelTestLogger
 from .errors import APIError, AuthenticationError, RateLimitError, ModelNotFoundError, TimeoutError as APITimeoutError, ServerError
 
@@ -95,7 +94,7 @@ class ModelTester:
 
             response = await client.chat.completions.create(
                 model=model.id,
-                messages=[ChatMessage(role="user", content="请回复'OK'")],
+                messages=[{"role": "user", "content": "请回复'OK'"}],
                 max_tokens=100,
                 temperature=0.7,
                 extra_body=extra_body,
@@ -280,7 +279,7 @@ class ModelTester:
 
             response = await client.chat.completions.create(
                 model=model.id,
-                messages=[ChatMessage(role="user", content="请回复'OK'")],
+                messages=[{"role": "user", "content": "请回复'OK'"}],
                 max_tokens=50,
                 temperature=0.7
             )
