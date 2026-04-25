@@ -4,6 +4,7 @@ NVIDIA 模型数据结构
 
 from typing import Optional, List
 from datetime import datetime
+from dataclasses import dataclass
 
 from src.models import ModelInfo as _SrcModelInfo
 

@@ -9,6 +9,7 @@ import httpx
 from typing import List, Optional
 
 from .models import ModelInfo, ModelStore, is_reasoning_model, get_reasoning_effort
+from src.models import ChatMessage
 from .logger import ModelTestLogger
 from .errors import APIError, AuthenticationError, RateLimitError, ModelNotFoundError, TimeoutError as APITimeoutError, ServerError
 
