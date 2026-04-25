@@ -2,7 +2,7 @@
 
 > **文档版本**: v4.0.0
 > **更新时间**: 2026-04-25
-> **适用场景**: 交给其他 AI 构建 Web 应用（FastAPI/Flask）
+> **适用场景**: 交给其他 AI 构建 Web 应用（任意框架）
 > **基于代码状态**: Phase 1-4 全部完成 + 单元测试完善（76 个测试用例）
 > **维护者**: 项目架构师/技术负责人
 
@@ -1090,7 +1090,7 @@ checkpoint.json 存储已测试模型集合，避免重复测试。
 所有 URL、超时、选择器、过滤规则集中到 `configs/app_config.yaml`
 
 #### 5.3 长期扩展
-- Web UI（Flask/FastAPI）
+- Web UI（任意框架）
 - SQLite 历史数据存储 + 趋势分析
 - 插件系统（第三方平台扩展）
 - CI/CD 自动化测试流水线
@@ -1132,9 +1132,12 @@ checkpoint.json 存储已测试模型集合，避免重复测试。
 
 ## Web 应用构建指南
 
-> ⭐ v4.0.0 新增 — 专为其他 AI 构建 Web 应用（FastAPI/Flask）设计的接口说明
+> ⭐ v4.0.0 新增 — **纯接口原理说明（框架无关）**
+>
+> ⚠️ **重要**: 本章节只说明**核心接口和调用契约**，**不做任何技术栈决策**。
+> 你可以自由选择 FastAPI / Flask / Django / Gradio / Streamlit 或任何其他框架。
 
-### 1. 核心类导入路径速查表
+### 1. 核心类导入路径速查
 
 | 类名/函数 | 导入路径 | 用途 |
 |----------|---------|------|
@@ -1144,8 +1147,8 @@ checkpoint.json 存储已测试模型集合，避免重复测试。
 | `ChatMessage` | `from src.models import ChatMessage` | 消息数据结构 |
 | `TestResult` | `from src.models import TestResult` | 测试结果数据结构 |
 | `TestReport` | `from src.models import TestReport` | 测试报告数据结构 |
-| `ModelTester` | `from crawler.tester import ModelTester` | 核心测试引擎（async） |
-| `NvidiaScraper` | `from crawler.scraper import NvidiaScraper` | Playwright 爬虫（async） |
+| `ModelTester` | `from crawler.tester import ModelTester` | 核心测试引擎（**async**） |
+| `NvidiaScraper` | `from crawler.scraper import NvidiaScraper` | Playwright 爬虫（**async**） |
 | `PlatformRegistry` | `from src.platform_registry import registry` | 平台注册表（单例） |
 | `APIError` | `from crawler.errors import APIError` | 错误基类 |
 | `AuthenticationError` | `from crawler.errors import AuthenticationError` | 认证错误(401) |
@@ -1153,322 +1156,479 @@ checkpoint.json 存储已测试模型集合，避免重复测试。
 | `is_reasoning_model` | `from crawler.models import is_reasoning_model` | 推理模型判断函数 |
 | `get_reasoning_effort` | `from crawler.models import get_reasoning_effort` | 推理努力程度获取 |
 
-### 2. 异步调用示例（FastAPI 集成）
+### 2. 异步调用原理（框架无关）
 
-#### 2.1 基础：测试单个模型
+#### 2.1 核心事实
+
+`ModelTester` 的所有测试方法都是 **真正的 async 方法**（v4 改造完成）：
 
 ```python
-from fastapi import FastAPI, HTTPException
-from crawler.tester import ModelTester
-from crawler.models import ModelInfo
-import os
-
-app = FastAPI(title="NVIDIA Model Tester API")
-
-# 全局 tester 实例（应用启动时初始化）
-tester: ModelTester = None
-
-@app.on_event("startup")
-async def startup_event():
-    global tester
-    api_key = os.getenv("NVIDIA_API_KEY")
-    if not api_key:
-        raise RuntimeError("NVIDIA_API_KEY not set")
-    tester = ModelTester(api_key=api_key)
-
-@app.post("/api/test-model")
-async def test_model_endpoint(model_id: str, timeout: int = 60):
-    """测试单个模型"""
-    model = ModelInfo(id=model_id, name=model_id, rank=0)
-    try:
-        result = await tester.test_single_model(model, timeout=timeout)
-        return {
-            "model_id": model_id,
-            "status": result.test_status,
-            "response_time": result.response_time,
-            "error": result.error_message or None,
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+class ModelTester:
+    async def test_single_model(self, model: ModelInfo, timeout: int = 60,
+                                force_reasoning: bool = False,
+                                force_normal: bool = False) -> ModelInfo: ...
+    
+    async def test_batch_models(self, models: List[ModelInfo],
+                               concurrency: int = 5, ...) -> List[ModelInfo]: ...
+    
+    def generate_report(self, models: List[ModelInfo]) -> dict: ...  # 同步方法
 ```
 
-#### 2.2 进阶：批量测试 + 推理模式
+**关键点**：
+- ✅ 必须使用 `await` 调用（因为是真正的 async，不是假的 run_in_executor）
+- ✅ 返回值是 **入参 ModelInfo 对象本身**（原地 mutation，测试结果直接写在对象上）
+- ✅ 可通过 `.to_dict()` 序列化为字典
+- ⚠️ **不是线程安全的**（同一 ModelInfo 实例不应并发测试）
+
+#### 2.2 单模型测试调用流程
 
 ```python
-from typing import List
-from pydantic import BaseModel
+# 伪代码（适用于任何异步框架）
 
-class BatchTestRequest(BaseModel):
-    model_ids: List[str]
-    concurrency: int = 5
-    force_reasoning: bool = False
-    force_normal: bool = False
-
-@app.post("/api/batch-test")
-async def batch_test_endpoint(req: BatchTestRequest):
-    """批量测试多个模型"""
-    models = [
-        ModelInfo(id=mid, name=mid, rank=i)
-        for i, mid in enumerate(req.model_ids)
-    ]
+async def test_one_model(model_id: str) -> dict:
+    """
+    测试单个模型的通用流程。
     
-    results = await tester.test_batch_models(
-        models,
-        concurrency=req.concurrency,
-        force_reasoning=req.force_reasoning,
-        force_normal=req.force_normal,
+    参数:
+        model_id: 完整模型ID，如 "deepseek-ai/deepseek-v4-flash"
+    
+    返回:
+        包含测试结果的字典，可直接序列化为 JSON
+    """
+    from crawler.tester import ModelTester
+    from crawler.models import ModelInfo
+    
+    # Step 1: 创建 ModelInfo 实例（必填字段：id, name, rank）
+    model = ModelInfo(
+        id=model_id,
+        name=model_id.split("/")[-1],  # 从 ID 提取短名
+        rank=0,                         # 可选，用于排序显示
     )
     
+    # Step 2: 调用异步测试方法（必须 await！）
+    result = await tester.test_single_model(
+        model,
+        timeout=60,              # 超时时间（秒），推理模型会自动使用 180s
+        # force_reasoning=False,   # 可选：强制推理模式
+        # force_normal=False,      # 可选：强制普通模式
+    )
+    
+    # Step 3: 提取结果（result 就是入参 model，已被原地修改）
+    return {
+        "model_id": result.id,
+        "model_name": result.name,
+        "status": result.test_status,          # "success" | "failed" | "timeout"
+        "status_icon": result.status_icon,     # emoji: ✅ ❌ ⏰ 🔄 ⏳
+        "response_time": round(result.response_time, 2),  # 秒
+        "is_reasoning": result.is_reasoning,    # 是否使用了推理模式
+        "reasoning_effort": result.reasoning_effort,  # "high" | "medium" | None
+        "token_usage": result.token_usage,
+        "error": result.error_message or None,  # 失败时的错误信息
+        "test_date": result.test_date,
+    }
+```
+
+#### 2.3 批量测试调用流程
+
+```python
+# 伪代码：批量测试 + 报告生成
+
+async def batch_test_models(model_ids: List[str]) -> dict:
+    """
+    批量测试多个模型并生成统计报告。
+    
+    参数:
+        model_ids: 模型ID列表
+    
+    返回:
+        包含 summary + 成功/失败模型列表的完整报告
+    """
+    from crawler.tester import ModelTester
+    from crawler.models import ModelInfo
+    
+    # Step 1: 批量创建 ModelInfo 实例
+    models = [
+        ModelInfo(id=mid, name=mid.split("/")[-1], rank=i)
+        for i, mid in enumerate(model_ids)
+    ]
+    
+    # Step 2: 并发测试（Semaphore 控制并发数）
+    results = await tester.test_batch_models(
+        models,
+        concurrency=5,             # 最大同时请求数（建议 3-5，避免 429）
+        timeout=60,                # 普通模型超时（秒）
+        timeout_reasoning=180,     # 推理模型自动识别并使用此超时
+        # force_reasoning=False,   # 可选：强制全部使用推理模式
+        # force_normal=False,      # 可选：强制全部使用普通模式
+    )
+    
+    # Step 3: 生成结构化报告
     report = tester.generate_report(results)
+    
+    """
+    report 结构:
+    {
+        "summary": {
+            "total": int,           # 总数
+            "success": int,         # 成功数
+            "failed": int,          # 失败数
+            "timeout": int,         # 超时数
+            "testing": int,         # 测试中数
+            "pending": int,         # 待测试数
+        },
+        "successful_models": [      # 按 response_time 升序排列（最快在前）
+            {"rank": int, "id": str, "response_time": float, 
+             "token_usage": int, "tags": List[str]},
+            ...
+        ],
+        "failed_models": [          # 包含 failed 和 timeout 状态的模型
+            {"rank": int, "id": str, "status": str, 
+             "error": str or None, "tags": List[str]},
+            ...
+        ],
+        "timestamp": str,           # 报告生成时间 (YYYY-MM-DD HH:MM:SS)
+    }
+    """
+    
     return report
 ```
 
-#### 2.3 高级：流式响应（Server-Sent Events）
+### 3. 错误处理原理（7 层层次结构）
 
-```python
-from fastapi.responses import StreamingResponse
-import json
-
-@app.get("/api/test-stream/{model_id}")
-async def test_model_stream(model_id: str):
-    """流式返回测试进度"""
-    model = ModelInfo(id=model_id, name=model_id, rank=0)
-    
-    async def event_generator():
-        yield f"data: {{'status': 'starting', 'model': '{model_id}'}}\n\n"
-        
-        result = await tester.test_single_model(model)
-        
-        yield f"data: {json.dumps({'status': 'completed', 'result': {'test_status': result.test_status, 'response_time': result.response_time}})}\n\n"
-        yield "data: [DONE]\n\n"
-    
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-    )
-```
-
-### 3. 数据模型字段说明
-
-#### 3.1 ModelInfo（核心数据结构）
-
-```python
-@dataclass
-class ModelInfo:
-    # === 基本信息 ===
-    id: str                           # 模型完整ID（如 "deepseek-ai/deepseek-v4-flash"）
-    name: str                         # 显示名称
-    vendor: str = ""                  # 厂商（如 "deepseek-ai"）
-    rank: int = 0                     # 热度排名
-    
-    # === 可用性标记 ===
-    is_downloadable: bool = False     # 权重可下载
-    is_free_endpoint: bool = True     # 免费API端点
-    tags: List[str] = field(default_factory=list)  # 标签列表
-    
-    # === 测试状态（由 ModelTester 填充）===
-    test_status: str = "pending"      # pending/testing/success/failed/timeout
-    response_time: float = 0.0        # 响应时间（秒）
-    error_message: str = ""           # 错误信息（截断500字符）
-    token_usage: int = 0              # Token消耗量
-    test_date: Optional[str] = None   # 测试完成时间
-    
-    # === 推理模型特有字段 ===
-    is_reasoning: bool = False        # 是否为推理模型
-    reasoning_effort: Optional[str] = None  # low/medium/high
-    
-    @property
-    def status_icon(self) -> str:     # 状态emoji映射
-        ...
-    
-    @property
-    def is_callable(self) -> bool:    # test_status == "success"
-        ...
-    
-    def to_dict(self) -> dict:        # 序列化为字典
-        ...
-```
-
-#### 3.2 TestReport（测试报告）
-
-```python
-@dataclass
-class TestReport:
-    timestamp: str                    # 报告生成时间
-    platform: str = "nvidia"         # 平台名称
-    total: int = 0                    # 总数
-    success: int = 0                  # 成功数
-    failed: int = 0                   # 失败数
-    timeout: int = 0                  # 超时数
-    results: List[dict] = field(default_factory=list)  # 详细结果列表
-    
-    def to_dict(self) -> dict:        # 含嵌套 statistics
-        ...
-```
-
-### 4. 错误类型层次和处理最佳实践
-
-#### 4.1 错误类型层次（7层）
+#### 3.1 错误类型树
 
 ```
+crawler/errors.py 定义的异常体系:
+
 Exception
 └── APIError (基类)
-    ├── AuthenticationError    # status_code=401, 认证失败
-    ├── RateLimitError         # status_code=429, 频率超限
-    ├── ModelNotFoundError      # 含 model_id 字段
-    ├── ServerError            # 含自定义 status_code
-    └── TimeoutError           # 无 status_code, 连接超时
+    │   属性: message: str, status_code: Optional[int], details: Optional[dict]
+    │
+    ├── AuthenticationError       # HTTP 401 — API Key 无效或过期
+    ├── RateLimitError            # HTTP 429 — 请求频率超限（建议 60s 后重试）
+    ├── ModelNotFoundError         # HTTP 404 — 模型不存在或已下架
+    │       特有属性: model_id: str
+    ├── ServerError               # HTTP 5xx — NVIDIA 服务端错误
+    │       特有属性: status_code: int (实际 HTTP 状态码)
+    └── TimeoutError              # 连接/读取超时（无标准 HTTP 映射）
 
-ScrapingError                 # 独立体系（非 APIError 子类）
-    ├── selector: str         # CSS 选择器
-    └── page_url: str         # 页面 URL
+ScrapingError                   # 独立体系（非 APIError 子类）
+    │   属性: message: str, selector: Optional[str], page_url: Optional[str]
+    └── 用于爬虫模块的错误（Web 应用通常不需要处理）
 ```
 
-#### 4.2 Web 应用中的错误处理示例
+#### 3.2 错误语义说明
+
+| 错误类型 | 触发条件 | 建议的客户端行为 | 建议的 HTTP 映射 |
+|---------|---------|----------------|----------------|
+| `AuthenticationError` | API Key 错误、过期、权限不足 | 提示用户检查配置 | 401 Unauthorized |
+| `RateLimitError` | 请求太频繁（NVIDIA 限流） | 显示"请稍后重试"，建议等待 60s | 429 Too Many Requests |
+| `ModelNotFoundError` | 模型 ID 在平台不存在 | 显示"模型已下架或不支持" | 404 Not Found |
+| `ServerError` | NVIDIA 服务端异常（500/502/503） | 显示"服务暂时不可用"，可重试 | 对应 status_code |
+| `TimeoutError` | 网络连接或读取超时 | 显示"响应超时"，建议增加超时或换模型 | 504 Gateway Timeout 或自定义 |
+
+#### 3.3 错误处理原则（伪代码）
 
 ```python
-from crawler.errors import (
-    APIError, AuthenticationError, RateLimitError, 
-    ModelNotFoundError, TimeoutError, ServerError
-)
+# 原理性示例（非框架绑定）
 
 async def safe_test_model(tester: ModelTester, model_id: str) -> dict:
+    """
+    安全测试模型的标准错误处理模式。
+    
+    原则:
+    1. 捕获具体异常类型（不要裸 except Exception）
+    2. 将异常映射为用户友好的错误信息
+    3. 保留原始错误详情用于调试日志
+    4. 不要暴露内部实现细节给终端用户
+    """
+    from crawler.errors import (
+        APIError, AuthenticationError, RateLimitError,
+        ModelNotFoundError, TimeoutError, ServerError
+    )
+    
     model = ModelInfo(id=model_id, name=model_id, rank=0)
     
     try:
         result = await tester.test_single_model(model)
         return {"success": True, "data": result.to_dict()}
-    
-    except AuthenticationError as e:
+        
+    except AuthenticationError:
         return {
-            "success": False, 
+            "success": False,
             "error_type": "auth_failed",
-            "message": "API Key 无效或已过期",
-            "status_code": 401,
+            "user_message": "API 认证失败，请检查密钥配置",
+            # 不暴露: 原始异常堆栈、内部 URL 等
         }
     
-    except RateLimitError as e:
+    except RateLimitError:
         return {
             "success": False,
             "error_type": "rate_limited",
-            "message": "请求频率超限，请稍后重试",
-            "retry_after": 60,  # 建议 60 秒后重试
-            "status_code": 429,
-        }
-    
-    except TimeoutError as e:
-        return {
-            "success": False,
-            "error_type": "timeout",
-            "message": "模型响应超时",
-            "suggestion": "尝试增加 timeout 参数或选择更快的模型",
+            "user_message": "请求过于频繁，请 60 秒后重试",
+            "retry_after": 60,  # 建议：可在响应头设置 Retry-After
         }
     
     except ModelNotFoundError as e:
         return {
             "success": False,
             "error_type": "not_found",
-            "message": f"模型 {model_id} 不存在或已下架",
+            "user_message": f"模型 '{model_id}' 不存在或已下架",
+            "model_id": e.model_id,  # 该异常特有属性
         }
     
     except ServerError as e:
         return {
             "success": False,
             "error_type": "server_error",
-            "message": f"NVIDIA 服务器错误 (HTTP {e.status_code})",
-            "status_code": e.status_code,
+            "user_message": "NVIDIA 服务暂时不可用",
+            "status_code": e.status_code,  # 该异常特有属性
         }
     
-    except APIError as e:
+    except TimeoutError:
+        return {
+            "success": False,
+            "error_type": "timeout",
+            "user_message": "模型响应超时，建议选择更快的模型或增加超时时间",
+        }
+    
+    except APIError as e:  # 兜底：捕获所有未分类的 API 错误
         return {
             "success": False,
             "error_type": "api_error",
-            "message": e.message,
-            "details": e.details,
+            "user_message": "测试过程中发生未知错误",
+            # 仅在调试模式下返回 details:
+            # "details": e.details,
         }
 ```
 
-### 5. 配置管理方法
+### 4. 推理模型双模式原理
 
-#### 5.1 加载 API Key
+#### 4.1 自动检测机制（内部逻辑）
+
+`test_single_model()` 会**自动判断**是否需要使用推理模式，无需手动干预：
+
+```
+判断优先级（从高到低）:
+┌─────────────────────────┐
+│ force_reasoning == True? │ ──→ ✅ 强制推理模式（忽略模型特性）
+└─────────────────────────┘
+           ↓ No
+┌─────────────────────────┐
+│ force_normal == True?   │ ──→ ✅ 强制普通模式（即使模型支持推理）
+└─────────────────────────┘
+           ↓ No
+┌─────────────────────────┐
+│ is_reasoning_model(id)? │ ──→ ✅ 自动检测（三级匹配策略）
+│                           │
+│  第一级: id in REASONING_MODELS  (精确匹配 O(1))
+│  第二级: 去掉 vendor 前缀后匹配
+│  第三级: pattern in id_part     (模糊匹配 PATTERNS)
+└─────────────────────────┘
+           ↓ No (都不匹配)
+┌─────────────────────────┐
+│ 默认 → 普通模式         │
+└─────────────────────────┘
+```
+
+#### 4.2 两种模式的差异对比
+
+| 维度 | 推理模式 (`_test_reasoning_model`) | 普通模式 (`_test_normal_model`) |
+|------|-----------------------------------|-------------------------------|
+| **触发条件** | 自动检测 or `force_reasoning=True` | 默认路径 or `force_normal=True` |
+| **OpenAI 参数** | `stream=True`, `extra_body={"chat_template_kwargs": {...}}` | 标准 OpenAI 调用（无特殊参数） |
+| **响应解析** | 遍历 chunk 流，提取 `delta.reasoning` + `delta.content` | 直接读 `response.choices[0].message.content` |
+| **Token 统计** | 通常为 `0`（流式响应通常无 usage 对象） | 从 `response.usage.total_tokens` 获取 |
+| **默认超时** | **180 秒**（是普通模式的 3 倍） | **60 秒** |
+| **max_tokens** | `100` | `50` |
+| **结果标记** | `result.is_reasoning = True`<br>`result.reasoning_effort = "high" \| "medium"` | `result.is_reasoning = False`<br>`result.reasoning_effort = None` |
+
+#### 4.3 如何判断返回值使用了哪种模式？
+
+```python
+result = await tester.test_single_model(model)
+
+if result.is_reasoning:
+    print(f"✅ 使用了推理模式 (effort: {result.reasoning_effort})")
+    print(f"   注意: token_usage 可能为 0（流式响应特性）")
+else:
+    print(f"📝 使用了普通模式")
+    print(f"   Token 消耗: {result.token_usage}")
+```
+
+### 5. 配置管理通用方法
+
+#### 5.1 API Key 加载（三种方式）
 
 ```python
 import os
-from dotenv import load_dotenv
 
-load_dotenv()  # 加载 .env 文件
-
+# 方式 A: 环境变量（推荐用于 Docker/K8s/Serverless 等容器化部署）
 api_key = os.getenv("NVIDIA_API_KEY")
 if not api_key:
-    raise ValueError("请在 .env 中设置 NVIDIA_API_KEY")
+    raise RuntimeError("必须设置 NVIDIA_API_KEY 环境变量")
 
-# 创建 tester 实例
-tester = ModelTester(api_key=api_key)
+# 方式 B: .env 文件（推荐用于本地开发）
+from dotenv import load_dotenv
+load_dotenv()  # 加载 .env 或 .env.local
+api_key = os.getenv("NVIDIA_API_KEY")
+
+# 方式 C: 直接传入（不推荐硬编码，仅用于测试）
+api_key = "nvapi-your-key-here"
 ```
 
-#### 5.2 SSL 证书设置（自动处理）
+#### 5.2 SSL 证书设置
 
 ```python
 from src.ssl_config import setup_ssl_certificates
 
-# 在应用启动时调用一次即可
-setup_ssl_certificates()
+# 通常不需要手动调用！ModelTester.__init__ 会自动执行。
+# 但如果遇到 SSL 问题，可以预配置：
 
-# 或者手动指定证书路径
-setup_ssl_certificates(cert_path="/path/to/cert.pem")
+setup_ssl_certificates()  # 方式1: 自动查找 certifi 或系统证书
+# setup_ssl_certificates(cert_path="/custom/path/cert.pem")  # 方式2: 手动指定
 ```
 
-> ⚠️ **注意**: `ModelTester.__init__` 会自动调用 `setup_ssl_certificates()`，
-> 所以通常不需要手动调用。但在某些容器化环境可能需要预配置。
-
-### 6. 推理模型双模式调用示例
-
-#### 6.1 自动检测模式（推荐）
+#### 5.3 创建 Tester 实例
 
 ```python
-model = ModelInfo(id="deepseek-ai/deepseek-v4-flash", name="DeepSeek V4 Flash", rank=10)
+from crawler.tester import ModelTester
 
-# 自动检测：因为 ID 匹配 REASONING_MODELS，会自动使用推理模式
-result = await tester.test_single_model(model)
+# 推荐：应用启动时创建一次（单例复用）
+tester = ModelTester(api_key=api_key)
 
-print(f"模式: {'推理' if result.is_reasoning else '普通'}")
-print(f"响应时间: {result.response_time:.2f}s")
-print(f"状态: {result.status_icon} {result.test_status}")
+# 内部会自动:
+# 1. 调用 setup_ssl_certificates()
+# 2. 创建 httpx.AsyncClient(verify=False) 作为成员变量
+# 3. 所有后续测试共享同一个 HTTP 连接池（高效）
 ```
 
-#### 6.2 强制指定模式
+### 6. 数据模型字段完整说明
+
+#### 6.1 ModelInfo（核心数据结构）
+
+这是项目的**全域唯一数据模型定义**（v3 统一后的结果）：
+
+| 字段 | 类型 | 默认值 | 说明 | 谁来填充 |
+|------|------|--------|------|---------|
+| **基本信息** |||||
+| `id` | `str` | **必填** | 完整模型ID（如 `"deepseek-ai/deepseek-v4-flash"`） | 调用者传入 |
+| `name` | `str` | **必填** | 显示名称 | 调用者传入 |
+| `vendor` | `str` | `""` | 厂商（如 `"deepseek-ai"`） | 调用者/爬虫 |
+| `rank` | `int` | `0` | 热度排名 | 调用者/爬虫 |
+| **可用性标记** |||||
+| `is_downloadable` | `bool` | `False` | 权重是否可下载 | 爬虫填充 |
+| `is_free_endpoint` | `bool` | `True` | 是否免费端点 | 爬虫填充 |
+| `tags` | `List[str]` | `[]` | 标签列表（如 `["downloadable", "free"]`） | 爬虫填充 |
+| **测试状态（Tester 填充）** |||||
+| `test_status` | `str` | `"pending"` | 测试状态枚举值 | ✅ Tester 更新 |
+| `response_time` | `float` | `0.0` | 响应时间（秒） | ✅ Tester 更新 |
+| `error_message` | `str` | `""` | 错误信息（截断至 500 字符） | ✅ Tester 更新 |
+| `token_usage` | `int` | `0` | Token 消耗量 | ✅ Tester 更新 |
+| `test_date` | `Optional[str]` | `None` | 测试完成时间（`"%Y-%m-%d %H:%M:%S"` 格式） | ✅ Tester 更新 |
+| **推理模型特有字段** |||||
+| `is_reasoning` | `bool` | `False` | 本次测试是否使用推理模式 | ✅ Tester 更新 |
+| `reasoning_effort` | `Optional[str]` | `None` | 推理努力程度：`"low"` / `"medium"` / `"high"` | ✅ Tester 更新 |
+| **辅助字段** |||||
+| `description` | `Optional[str]` | `None` | 模型描述 | 爬虫填充 |
+| `category` | `Optional[str]` | `None` | 分类标签 | 爬虫填充 |
+| `is_text_model` | `bool` | `True` | 是否文本模型 | 爬虫填充 |
+| `href` | `str` | `""` | 模型页面链接 | 爬虫填充 |
+
+**特殊属性（Python property，不占用存储）**：
+
+| Property | 返回类型 | 说明 |
+|----------|---------|------|
+| `.status_icon` | `str` | 将 `test_status` 映射为 emoji：<br>• `"pending"` → ⏳<br>• `"testing"` → 🔄<br>• `"success"` → ✅<br>• `"failed"` → ❌<br>• `"timeout"` → ⏰<br>• 其他 → ❓ |
+| `.is_callable` | `bool` | `test_status == "success"` 时为 `True` |
+
+**序列化方法**：
 
 ```python
-# 强制普通模式（即使模型支持推理）
-result_normal = await tester.test_single_model(
-    model, 
-    force_normal=True
-)
-
-# 强制推理模式
-result_reasoning = await tester.test_single_model(
-    model,
-    force_reasoning=True,
-    timeout=180  # 推理模型建议更长超时
-)
+model.to_dict()
+# → 返回包含上述所有字段的字典（可直接 JSON 序列化）
+# → error_message 会被截断至 200 字符（安全考虑）
 ```
 
-#### 6.3 手动标记推理模型
+#### 6.2 TestReport（generate_report 返回值）
+
+`tester.generate_report(results)` 返回的字典结构：
 
 ```python
-# 批量测试前手动标记
-models = [ModelInfo(id=f"model-{i}", rank=i) for i in range(10)]
-
-# 将特定模型标记为推理模型
-for model in models:
-    if "deepseek" in model.id.lower() or "glm" in model.id.lower():
-        model.is_reasoning = True
-        from crawler.models import get_reasoning_effort
-        model.reasoning_effort = get_reasoning_effort(model.id)
-
-# 批量测试时会自动使用推理模式的超时时间（180s vs 60s）
-results = await tester.test_batch_models(models, concurrency=3)
+{
+    "summary": {
+        "total": int,           # 输入模型总数
+        "success": int,         # test_status == "success" 的数量
+        "failed": int,          # test_status == "failed" 的数量
+        "timeout": int,         # test_status == "timeout" 的数量
+        "testing": int,         # 仍在测试中的数量（通常为 0）
+        "pending": int,         # 未开始测试的数量
+    },
+    "successful_models": [
+        # 按 response_time 升序排列（最快的模型在最前面）
+        {
+            "rank": int,                    # 原始排名
+            "id": str,                      # 模型 ID
+            "response_time": float,         # 响应时间（秒）
+            "token_usage": int,             # Token 消耗
+            "tags": List[str],              # 标签（来自爬虫）
+        },
+        # ... 更多成功模型
+    ],
+    "failed_models": [
+        # 包含 failed 和 timeout 两种状态
+        {
+            "rank": int,
+            "id": str,
+            "status": str,                  # "failed" 或 "timeout"
+            "error": str or None,           # 错误信息（如有）
+            "tags": List[str],
+        },
+        # ... 更多失败模型
+    ],
+    "timestamp": str,           # 报告生成时间
+}
 ```
+
+---
+
+## 设计原则（⭐ 给其他 AI 的重要提示）
+
+> ### 🚫 本文档不做技术栈决策！
+>
+> 我们只提供**接口契约和调用原理**，以下是你可以自由发挥的维度：
+
+### 你可以自由选择的：
+
+| 维度 | 可选方案 | 选择依据 |
+|------|---------|---------|
+| **Web 框架** | FastAPI / Flask / Django / Gradio / Streamlit / Tornado / Sanic... | 团队熟悉度、性能需求、生态偏好 |
+| **部署方式** | Docker + Nginx / Kubernetes / Serverless (Vercel/Railway) / 传统 VPS / 本地运行... | 规模、成本、运维能力 |
+| **数据库** | SQLite（轻量）/ PostgreSQL（生产）/ MongoDB / Redis 缓存 / 纯文件存储(JSON)... | 数据持久化需求、查询复杂度 |
+| **前端** | React SPA / Vue.js / 纯 HTML+JS / Jupyter Notebook / Gradio 内置 UI / Streamlit 组件... | 交互复杂度、目标用户 |
+| **任务队列** | Celery+Redis / ARQ / asyncio.create_task / 直接 await（简单场景）... | 是否需要后台任务、可靠性要求 |
+| **认证方式** | JWT OAuth / API Key / Session / 无认证（本地工具）... | 安全需求、使用场景 |
+| **实时更新** | WebSocket / SSE (Server-Sent Events) / 轮询 / 长轮询... | 用户体验、实现复杂度 |
+
+### 唯一的技术约束（必须遵守）：
+
+1. ✅ **必须使用 `async/await`** 调用 `ModelTester` 的方法（因为底层是真异步 I/O）
+2. ✅ **正确处理 7 种错误类型**（或统一捕获 `APIError` 基类）
+3. ✅ **理解推理模型双模式差异**（影响超时时间和返回值的 `is_reasoning` 标记）
+4. ✅ **配置好 API Key 和 SSL 证书**（否则无法连接 NVIDIA API）
+
+### 架构设计提示（仅供参考，不强制）：
+
+- 💡 **单例 Tester**: 应用生命周期内只创建一个 `ModelTester` 实例（共享连接池）
+- 💡 **并发控制**: 使用 Semaphore 限制同时请求数（建议 3-5，避免触发 429）
+- 💡 **缓存策略**: 相同模型短时间内重复测试时，可返回缓存结果（减少 API 调用）
+- 💡 **断点续传**: 利用 `ModelTestLogger` 的 checkpoint 机制支持中断恢复
+- 💡 **优雅关闭**: 应用退出前调用 `await tester._http_client.aclose()` 释放资源
+
+---
+
+**🎯 总结**: 这份文档提供了完整的**接口原理和数据契约**，
+但把**架构决策权完全交给你**。祝你构建出优秀的 Web 应用！ 🚀
 
 ---
 
@@ -1740,9 +1900,9 @@ api_key_test/
 ✅ **Phase 2 完成** — 合并基类体系（BasePlatformClient 补齐 chat_stream 等）+ 删除僵尸类
 ✅ **Phase 3 完成** — ✨ **真正的异步改造**（httpx.AsyncClient + AsyncOpenAI，移除 run_in_executor hack）
 ✅ **Phase 4 部分完成** — 🧪 **完善的单元测试体系**（76 个测试用例全部通过）+ 7 层错误类型系统
-✅ **Phase 5 部分完成** — 🌐 **Web 应用构建指南**（FastAPI 集成示例、数据模型说明、错误处理最佳实践）
+✅ **Phase 5 部分完成** — 🌐 **Web 应用构建指南**（纯接口原理说明、数据模型完整说明、错误处理原理、推理模型双模式机制）
 
-🎯 **当前状态**: 项目已具备构建 Web 应用的完整基础，可直接交付给其他 AI 进行 FastAPI/Flask 集成开发。
+🎯 **当前状态**: 项目已具备构建 Web 应用的完整基础，可直接交付给其他 AI 进行任意框架的集成开发。
 
 ---
 
