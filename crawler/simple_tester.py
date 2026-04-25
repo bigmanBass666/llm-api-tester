@@ -18,9 +18,8 @@ class SimpleModelTester:
     """简化模型测试器"""
 
     def __init__(self, api_key: str = None):
-        # 设置 SSL 证书
-        os.environ.setdefault('SSL_CERT_FILE', r'D:\apps\python312\Lib\site-packages\certifi\cacert.pem')
-        os.environ.setdefault('REQUESTS_CA_BUNDLE', r'D:\apps\python312\Lib\site-packages\certifi\cacert.pem')
+        from src.ssl_config import setup_ssl_certificates
+        setup_ssl_certificates()
 
         self.api_key = api_key or os.getenv("NVIDIA_API_KEY")
         if not self.api_key:

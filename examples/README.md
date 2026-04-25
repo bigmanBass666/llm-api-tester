@@ -18,14 +18,21 @@ pip install openai httpx requests
 1. **推荐**：创建 `.env` 文件或设置环境变量 `NVIDIA_API_KEY`
 2. **替代**：修改示例代码中的 `api_key` 变量
 
-### SSL 证书（Windows）
+### SSL 证书
 
-Windows 用户需要设置 SSL 证书路径：
+系统会自动使用 certifi 提供的证书，一般无需手动配置。如遇 SSL 错误：
 
 ```python
-import os
-os.environ.setdefault('SSL_CERT_FILE', r'D:\apps\python312\Lib\site-packages\certifi\cacert.pem')
-os.environ.setdefault('REQUESTS_CA_BUNDLE', r'D:\apps\python312\Lib\site-packages\certifi\cacert.pem')
+from src.ssl_config import setup_ssl_certificates
+setup_ssl_certificates()
+```
+
+或通过环境变量指定自定义证书路径：
+
+```bash
+# 在 .env.local 中设置
+SSL_CERT_FILE=/path/to/your/cert.pem
+REQUESTS_CA_BUNDLE=/path/to/your/cert.pem
 ```
 
 ## 模型示例

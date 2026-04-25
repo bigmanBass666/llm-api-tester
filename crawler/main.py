@@ -40,8 +40,8 @@ async def main():
     parser = argparse.ArgumentParser(description="NVIDIA 模型批量测试")
     parser.add_argument("-n", "--number", type=int, default=20,
                        help="测试的模型数量 (默认: 20)")
-    parser.add_argument("-c", "--concurrency", type=int, default=3,
-                       help="并发测试数量 (默认: 3)")
+    parser.add_argument("-c", "--concurrency", type=int, default=5,
+                       help="并发测试数量 (默认: 5)")
     parser.add_argument("--scrape-only", action="store_true",
                        help="仅爬取模型列表，不测试")
     parser.add_argument("--timeout", type=int, default=60,

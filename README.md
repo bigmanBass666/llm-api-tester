@@ -1,7 +1,217 @@
-# API Testing Framework - 多平台 API 测试框架
+# API 模型测试工具
 
-**用途**: 测试和管理多个平台的 AI API（NVIDIA、阿里云、腾讯云、智谱等）
-**维护**: 长期项目，持续更新
+**一句话介绍**：爬取并测试 NVIDIA、智谱等平台免费 AI 模型的一站式工具，生成可视化测试报告。
+
+**适用场景**：
+- 🤖 寻找可免费使用的 AI 模型
+- 📊 对比各模型的响应速度和稳定性
+- 🔍 发现新发布的高质量模型
+- ✅ 测试模型是否正常工作
+
+---
+
+## ⚡ 快速上手（3步搞定）
+
+### 第一步：安装依赖
+
+```bash
+# 克隆项目
+cd api_key_test
+
+# 安装 Python 依赖
+pip install -r requirements.txt
+
+# 安装 Playwright 浏览器（仅爬虫功能需要）
+playwright install chromium
+```
+
+### 第二步：配置 API Key
+
+```bash
+# 复制环境变量模板
+cp .env.example .env.local
+
+# 编辑 .env.local，填入你的 API Key
+# NVIDIA_API_KEY=nvapi-你的密钥
+```
+
+> 💡 **免费获取 NVIDIA API Key**：访问 [build.nvidia.com](https://build.nvidia.com)，用 GitHub 账号登录即可获取免费密钥。
+
+### 第三步：开始使用
+
+```bash
+# 场景1：测试 10 个热门模型（最常用）
+python crawler/main.py -n 10
+
+# 场景2：查看所有可用模型（不测试）
+python crawler/main.py --scrape-only -n 20
+
+# 场景3：测试最新发布的模型（而非按热度）
+python crawler/main.py -n 20 --sort-by recent
+
+# 场景4：提高并发加速测试（默认3）
+python crawler/main.py -n 20 -c 5
+```
+
+---
+
+## 🎯 核心功能
+
+### 1️⃣ 爬取模型列表
+```bash
+python crawler/main.py --scrape-only -n 50
+```
+- 按官方热度排序爬取前 N 个模型
+- 自动过滤语音/图像等非文字模型
+- 支持按热度（popular）或最新（recent）排序
+
+### 2️⃣ 批量测试模型
+```bash
+python crawler/main.py -n 20 -c 3
+```
+- 并发测试多个模型（默认3个同时）
+- 自动记录响应时间、超时、错误
+- 支持断点续传（中途中断了可以继续）
+
+### 3️⃣ 生成测试报告
+```bash
+# 测试完成后，报告自动生成在：
+# - docs/nvidia/NVIDIA_BATCH_TEST_日期时间.md  (Markdown 格式，可读性好)
+# - docs/raw-data/nvidia/nvidia_raw_日期时间.json  (原始数据)
+```
+
+---
+
+## 📋 常用命令速查
+
+| 需求 | 命令 |
+|------|------|
+| 测试前10个热门模型 | `python crawler/main.py -n 10` |
+| 仅查看模型列表 | `python crawler/main.py --scrape-only -n 20` |
+| 测试最新模型 | `python crawler/main.py -n 20 --sort-by recent` |
+| 提高并发加速 | `python crawler/main.py -n 20 -c 5` |
+| 增加超时时间 | `python crawler/main.py -n 20 --timeout 120` |
+| 断点续传（继续上次） | `python crawler/main.py -n 50 --resume` |
+| 查看所有参数 | `python crawler/main.py --help` |
+
+---
+
+## 💬 编程接口（Python 代码调用）
+
+### 方式一：一行代码调用
+
+```python
+from src.nvidia_client import nvidia_chat
+
+# 直接发送消息，自动处理 API Key
+result = nvidia_chat("minimax-m2.7", "请回复 OK")
+print(result)
+```
+
+### 方式二：创建客户端
+
+```python
+from src.nvidia_client import NvidiaClient
+
+client = NvidiaClient()
+
+# 使用完整模型 ID
+result = client.chat(
+    "minimaxai/minimax-m2.7",
+    [{"role": "user", "content": "写一个 Hello World"}]
+)
+print(result)
+
+client.close()
+```
+
+### 方式三：统一接口（推荐用于多平台）
+
+```python
+from src import use_platform, chat
+
+# 设置默认平台
+use_platform("nvidia")
+
+# 统一调用不同平台的模型
+result = chat("minimaxai/minimax-m2.7", "你好")
+print(result)
+```
+
+---
+
+## 🔧 进阶用法
+
+### 调整并发数
+```bash
+# -c 参数控制同时测试的模型数量
+# 默认 3，太高可能触发 API 限流
+python crawler/main.py -n 50 -c 5
+```
+
+### 自定义超时时间
+```bash
+# 网络慢时增大超时（秒）
+python crawler/main.py -n 20 --timeout 120
+```
+
+### 断点续传
+```bash
+# 如果测试中途按 Ctrl+C 中断了
+# 下次运行时加 --resume 可以跳过已测试的模型
+python crawler/main.py -n 50 --resume
+```
+
+### 过滤非文字模型
+```bash
+# 默认会过滤掉语音、图像、嵌入等非文字模型
+# 如果想测试所有模型（包括嵌入模型等）：
+python crawler/main.py -n 20 --no-filter
+```
+
+---
+
+## ❓ 常见问题
+
+### Q: 报 "请设置 NVIDIA_API_KEY" 错误
+**A**: 你需要创建 `.env.local` 文件并填入 API Key：
+```bash
+cp .env.example .env.local
+# 然后编辑 .env.local
+```
+
+### Q: 报 SSL 证书错误
+**A**: 项目已配置自动处理 SSL，如果仍有问题，尝试：
+```bash
+# 设置环境变量
+set SSL_CERT_FILE=/path/to/certifi/cacert.pem
+```
+
+### Q: 爬虫返回空列表或很少模型
+**A**: NVIDIA 网站可能改版或网络问题，尝试：
+```bash
+# 减少每次请求的模型数量
+python crawler/main.py --scrape-only -n 10
+# 或者换个时间再试
+```
+
+### Q: 测试时大量超时
+**A**: 某些模型确实响应慢，尝试：
+```bash
+# 增大超时时间
+python crawler/main.py -n 20 --timeout 120
+# 或者跳过不稳定的模型（已有报告会自动记录）
+```
+
+### Q: 如何测试智谱模型？
+**A**: 智谱客户端已部分实现，但爬虫主要针对 NVIDIA：
+```python
+from platforms.zhipu import ZhipuClient
+
+client = ZhipuClient(api_key="你的智谱APIKey")
+result = client.chat("glm-4-flash-250414", [{"role": "user", "content": "你好"}])
+print(result)
+```
 
 ---
 
@@ -9,183 +219,73 @@
 
 ```
 api_key_test/
-├── configs/                      # 配置文件
-│   └── platforms.yaml            # 平台配置
-├── docs/                         # 文档目录
-│   └── NVIDIA_免费模型测试记录.md
-├── platforms/                    # 平台特定代码（占位）
-│   ├── nvidia/                   # NVIDIA 平台
-│   ├── aliyun/                   # 阿里云平台
-│   ├── tencent/                  # 腾讯云平台
-│   └── zhipu/                    # 智谱平台
-├── scripts/                      # 实用脚本
-│   └── batch_test.py             # 批量测试
-├── src/                          # 核心源代码
-│   ├── __init__.py               # 包入口
-│   ├── base_client.py            # 客户端基类
-│   ├── platform_registry.py      # 平台注册表
-│   └── nvidia_client.py          # NVIDIA 客户端
-├── crawler/                      # 爬虫架构（新增）
-│   ├── main.py                   # 主入口
-│   ├── models.py                 # 模型数据结构
-│   ├── scraper.py                # NVIDIA 页面爬虫
-│   ├── tester.py                 # 批量测试器
-│   ├── requirements.txt          # 依赖列表
-│   ├── README.md                 # 爬虫文档
-│   └── reports/                  # 测试报告
-├── tests/                        # 测试用例
-├── .mcp.json                     # MCP 配置
-└── README.md                     # 本文件
+├── src/                          # 核心代码
+│   ├── nvidia_client.py         # NVIDIA API 客户端
+│   ├── zhipu_client.py          # 智谱 API 客户端
+│   ├── base_client.py           # 客户端基类（抽象接口）
+│   ├── platform_registry.py     # 平台注册表
+│   └── config_loader.py         # 配置加载器
+│
+├── crawler/                      # 爬虫+测试模块
+│   ├── main.py                  # 命令行入口 ⭐（主要使用入口）
+│   ├── scraper.py               # 页面爬虫（Playwright）
+│   ├── tester.py                # 批量测试引擎
+│   └── logger.py                # 日志和断点续传
+│
+├── report/                       # 报告生成
+│   └── generator.py             # Markdown/JSON 双格式输出
+│
+├── configs/
+│   └── platforms.yaml           # 平台配置文件
+│
+├── docs/                         # 文档和报告
+│   ├── PROJECT_PRINCIPLES.md   # 项目原理文档（给 AI 看的）
+│   └── nvidia/                  # 测试报告输出目录
+│
+└── examples/                     # 示例代码
+    └── *.py                     # 各种模型调用示例
 ```
 
 ---
 
-## ✅ 支持的平台
+## 📊 输出示例
 
-### NVIDIA NIM ✅ 已实现
+测试完成后，你会得到这样的 Markdown 报告：
 
-| 功能 | 状态 |
+```markdown
+# NVIDIA 模型批量测试报告
+
+## 📊 总体统计
+| 指标 | 数值 |
 |------|------|
-| 基础 API 调用 | ✅ 正常 |
-| **爬虫批量测试** | ✅ **新增** |
-| 按热度排序测试 | ✅ **新增** |
-| 异步并发测试 | ✅ **新增** |
+| 总模型数 | 20 |
+| 成功 | 16 ✅ |
+| 失败 | 2 ❌ |
+| 超时 | 2 ⏰ |
+| 成功率 | 80% |
 
-**已测试模型**:
-- Qwen3 Coder 480B ✅
-- MiniMax M2.7 ✅
-- DeepSeek V3.1 ✅
-- Llama 4 Maverick ✅
-- Kimi K2 ✅
-- Gemma 7B ✅
-- Phi-3 Mini ✅
-- Step 3.5 Flash ⚠️
-- GLM 4.7 ⚠️
-- Qwen 3.5 122B ✅
+## 🏆 最快模型排行榜
+| 排名 | 模型ID | 响应时间 |
+|------|--------|----------|
+| 1 | qwen/qwen3-coder-480b-a35b-instruct | 1.23s |
+| 2 | deepseek-ai/deepseek-v3.1-terminus | 1.45s |
 
-### 其他平台 🔜 待实现
-
-- [ ] 阿里云百炼 (dashscope)
-- [ ] 腾讯云混元
-- [ ] 智谱 GLM
-- [ ] Ollama (本地)
-- [ ] OpenAI (需要代理)
-
----
-
-## 🚀 快速开始
-
-### 1. 使用 NVIDIA 模型
-
-```python
-from src.nvidia_client import nvidia_chat, NvidiaClient
-
-# 方式一：一行代码快速调用
-result = nvidia_chat("minimax-m2.7", "你好")
-
-# 方式二：创建客户端
-client = NvidiaClient()
-result = client.quick_chat("qwen3-coder", "写个 Hello World")
-client.close()
-```
-
-### 2. 使用统一接口
-
-```python
-from src import use_platform, chat
-
-# 设置默认平台
-use_platform("nvidia", api_key="your-nvidia-api-key")
-
-# 统一调用
-result = chat("minimaxai/minimax-m2.7", "你好")
-```
-
-### 3. 批量测试
-
-```bash
-# 传统批量测试
-python scripts/batch_test.py --platform nvidia
-
-# 🆕 爬虫批量测试（按热度排序）
-python crawler/main.py -n 20 -c 5
-
-# 仅爬取模型列表
-python crawler/main.py --scrape-only -n 30
-```
-
-### 4. 添加新平台
-
-参考 `src/nvidia_client.py` 实现新的平台客户端：
-
-```python
-from src import BaseClient, register_platform, ChatMessage
-
-@register_platform(
-    name="myplatform",
-    display_name="My Platform",
-    client_class=None,
-    default_base_url="https://api.myplatform.com",
-    api_key_env="MYPLATFORM_API_KEY"
-)
-class MyPlatformClient(BaseClient):
-    def chat(self, model, messages, **kwargs):
-        # 实现聊天接口
-        pass
-
-    def list_models(self):
-        # 实现获取模型列表
-        pass
-
-    def test_connection(self):
-        # 实现连接测试
-        pass
+## 🎯 完整测试结果
+| 热度排名 | 模型ID | 状态 |
+|----------|--------|------|
+| #1 | qwen/qwen3-coder-480b... | ✅ 成功 |
+| #2 | google/gemma-4-31b-it | ✅ 成功 |
+| #3 | z-ai/glm5 | ⏰ 超时 |
 ```
 
 ---
 
-## 📝 配置文件
+## 🔗 相关文档
 
-平台配置位于 `configs/platforms.yaml`，包含：
-- 平台基础 URL
-- API Key 环境变量名
-- 可用模型列表
-
----
-
-## 🔧 环境变量
-
-```bash
-# NVIDIA
-export NVIDIA_API_KEY="nvapi-..."
-
-# 阿里云
-export DASHSCOPE_API_KEY="..."
-
-# 腾讯云
-export TENCENTCLOUD_SECRET_ID="..."
-export TENCENTCLOUD_SECRET_KEY="..."
-
-# 智谱
-export ZHIPU_API_KEY="..."
-```
+- [项目原理文档](docs/PROJECT_PRINCIPLES.md) - 给 AI 重构用的详细技术文档
+- [NVIDIA 测试记录](docs/nvidia/) - 历史测试报告
+- [平台配置说明](configs/platforms.yaml) - 支持的平台列表
 
 ---
 
-## 📋 开发指南
-
-### 添加新平台
-
-1. 在 `platforms/` 下创建平台目录
-2. 参考 `src/nvidia_client.py` 实现客户端类
-3. 使用 `@register_platform` 装饰器注册
-4. 更新 `configs/platforms.yaml`
-
-### 添加新模型测试
-
-1. 在对应平台的目录下创建测试文件
-2. 更新 `docs/模型测试记录.md`
-
----
-
-**最后更新**: 2026-04-13
+**最后更新**: 2026-04-25

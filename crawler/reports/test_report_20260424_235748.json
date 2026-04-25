@@ -1,0 +1,89 @@
+{
+  "summary": {
+    "total": 50,
+    "success": 4,
+    "failed": 4,
+    "timeout": 0,
+    "testing": 0,
+    "pending": 42
+  },
+  "successful_models": [
+    {
+      "rank": 36,
+      "id": "qwen/qwen2.5-coder-32b-instruct",
+      "response_time": 0.5091192722320557,
+      "token_usage": 35,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 28,
+      "id": "meta/llama-3.1-405b-instruct",
+      "response_time": 0.5544145107269287,
+      "token_usage": 43,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 37,
+      "id": "nvidia/llama-3.3-nemotron-super-49b-v1",
+      "response_time": 0.6592092514038086,
+      "token_usage": 27,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 33,
+      "id": "meta/llama-3.1-70b-instruct",
+      "response_time": 0.8725342750549316,
+      "token_usage": 43,
+      "tags": [
+        "downloadable"
+      ]
+    }
+  ],
+  "failed_models": [
+    {
+      "rank": 24,
+      "id": "qwen/qwen2.5-7b-instruct",
+      "status": "failed",
+      "error": "Error code: 410 - {'type': 'about:blank', 'title': 'Gone', 'status': 410, 'detail': \"The model 'qwen/qwen2.5-7b-instruct' has reached its end of life on 2026-04-15T00:00:00Z and is no longer available.\"}",
+      "tags": [
+        "deprecated",
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 38,
+      "id": "nvidia/llama-3.2-nv-embedqa-1b-v2",
+      "status": "failed",
+      "error": "404 page not found",
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 49,
+      "id": "mistralai/mistral-small-3.1-24b-instruct-2503",
+      "status": "failed",
+      "error": "Error code: 410 - {'type': 'about:blank', 'title': 'Gone', 'status': 410, 'detail': \"The model 'mistralai/mistral-small-3.1-24b-instruct-2503' has reached its end of life on 2026-04-15T00:00:00Z and is no longer available.\"}",
+      "tags": [
+        "deprecated",
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 2,
+      "id": "black-forest-labs/flux.2-klein-4b",
+      "status": "failed",
+      "error": "404 page not found",
+      "tags": [
+        "downloadable"
+      ]
+    }
+  ],
+  "timestamp": "2026-04-24 23:57:48"
+}

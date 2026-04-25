@@ -8,9 +8,8 @@ import os
 import httpx
 from openai import OpenAI
 
-# 设置 SSL 证书（Windows 需要）
-os.environ.setdefault('SSL_CERT_FILE', r'D:\apps\python312\Lib\site-packages\certifi\cacert.pem')
-os.environ.setdefault('REQUESTS_CA_BUNDLE', r'D:\apps\python312\Lib\site-packages\certifi\cacert.pem')
+from src.ssl_config import setup_ssl_certificates
+setup_ssl_certificates()
 
 
 def test_glm5():
@@ -65,9 +64,10 @@ def check_glm5_status():
     try:
         result = subprocess.run(
             ["python", "-c", """
-import os
-os.environ.setdefault('SSL_CERT_FILE', r'D:\\apps\\python312\\Lib\\site-packages\\certifi\\cacert.pem')
+from src.ssl_config import setup_ssl_certificates
+setup_ssl_certificates()
 from src.nvidia_client import NvidiaClient
+import os
 c = NvidiaClient(api_key=os.getenv("NVIDIA_API_KEY"))
 models = c.list_models()
 zai_models = [m for m in models if 'z-ai' in m.id.lower()]

@@ -7,9 +7,8 @@ import os
 import httpx
 from openai import OpenAI
 
-# 设置 SSL 证书（Windows 需要）
-os.environ.setdefault('SSL_CERT_FILE', r'D:\apps\python312\Lib\site-packages\certifi\cacert.pem')
-os.environ.setdefault('REQUESTS_CA_BUNDLE', r'D:\apps\python312\Lib\site-packages\certifi\cacert.pem')
+from src.ssl_config import setup_ssl_certificates
+setup_ssl_certificates()
 
 
 def test_minimax_m2_7():

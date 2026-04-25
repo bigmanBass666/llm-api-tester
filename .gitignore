@@ -55,6 +55,21 @@ token.json
 # Claude Code temp files
 .claude/
 
+# Trae IDE files
+.trae/
+
+# Playwright MCP files
+.playwright-mcp/
+
+# Omc files
+.omc/
+
+# Temporary debug scripts
+check_*.py
+*_debug.py
+*.png
+t_filter*.py
+
 # Test outputs (可能包含敏感数据)
 test_outputs/
 crawler/reports/*.json      # JSON 报告可能包含 API 响应

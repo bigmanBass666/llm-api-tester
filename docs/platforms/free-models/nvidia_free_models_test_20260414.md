@@ -69,9 +69,8 @@ import os
 import httpx
 from openai import OpenAI
 
-# Windows Python 需要设置 SSL 证书路径
-os.environ['SSL_CERT_FILE'] = r'D:\apps\python312\Lib\site-packages\certifi\cacert.pem'
-os.environ['REQUESTS_CA_BUNDLE'] = r'D:\apps\python312\Lib\site-packages\certifi\cacert.pem'
+from src.ssl_config import setup_ssl_certificates
+setup_ssl_certificates()
 
 # 创建客户端
 with httpx.Client(verify=True, timeout=15) as client:

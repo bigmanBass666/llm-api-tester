@@ -41,15 +41,8 @@ class ZhipuClient(BaseClient):
     }
 
     def __init__(self, api_key: str, base_url: Optional[str] = None, **kwargs):
-        # 设置 SSL 证书
-        os.environ.setdefault(
-            'SSL_CERT_FILE',
-            r'D:\apps\python312\Lib\site-packages\certifi\cacert.pem'
-        )
-        os.environ.setdefault(
-            'REQUESTS_CA_BUNDLE',
-            r'D:\apps\python312\Lib\site-packages\certifi\cacert.pem'
-        )
+        from .ssl_config import setup_ssl_certificates
+        setup_ssl_certificates()
 
         super().__init__(
             api_key=api_key,

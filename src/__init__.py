@@ -5,6 +5,7 @@ API Testing Framework - 多平台 API 测试框架
 """
 
 from .base_client import BaseClient, ChatMessage, ModelInfo
+from .ssl_config import setup_ssl_certificates, get_ssl_cert_path
 from .platform_registry import (
     PlatformRegistry,
     registry,
@@ -28,6 +29,10 @@ __all__ = [
     "ModelInfo",
     "PlatformRegistry",
     "NvidiaClient",
+
+    # SSL 配置
+    "setup_ssl_certificates",
+    "get_ssl_cert_path",
 
     # 平台注册表
     "registry",

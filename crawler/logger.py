@@ -60,7 +60,7 @@ def get_logger(name: str = __name__, log_file: Optional[str] = None, level: int 
 class ModelTestLogger:
     """模型测试日志记录器"""
 
-    def __init__(self, log_dir='logs', console_output=True, level='INFO'):
+    def __init__(self, log_dir='logs', console_output=True, level='INFO', resume=True):
         """
         初始化日志器
 
@@ -68,10 +68,12 @@ class ModelTestLogger:
             log_dir: 日志目录
             console_output: 是否输出到控制台
             level: 日志级别
+            resume: 是否启用断点续传（默认启用）
         """
         self.log_dir = Path(log_dir)
         self.console_output = console_output
         self.level = level
+        self.resume = resume
 
         # 创建 log 目录
         self.log_dir.mkdir(exist_ok=True)
@@ -85,7 +87,11 @@ class ModelTestLogger:
         self._rotate_logs(keep=10)
 
         # 已测试模型集合（用于断点续传）
-        self.tested_models: Set[str] = self._load_checkpoint()
+        if resume:
+            self.tested_models: Set[str] = self._load_checkpoint()
+        else:
+            self.tested_models: Set[str] = set()
+            print("🔄 非断点模式：不加载历史断点")
 
         print(f"📝 日志系统初始化完成")
         print(f"   日志文件: {self.log_file}")
@@ -235,6 +241,6 @@ class ModelTestLogger:
         self.log('INFO', 'report_generated', output_path=output_path)
 
 
-def create_logger(log_dir='logs', console_output=True, level='INFO') -> ModelTestLogger:
+def create_logger(log_dir='logs', console_output=True, level='INFO', resume=True) -> ModelTestLogger:
     """创建日志器实例"""
-    return ModelTestLogger(log_dir=log_dir, console_output=console_output, level=level)
+    return ModelTestLogger(log_dir=log_dir, console_output=console_output, level=level, resume=resume)

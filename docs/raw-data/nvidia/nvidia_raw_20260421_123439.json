@@ -1,0 +1,121 @@
+{
+  "timestamp": "2026-04-21T12:34:39.648297",
+  "platform": "nvidia",
+  "total": 10,
+  "success": 4,
+  "failed": 4,
+  "timeout": 2,
+  "success_rate": 40.0,
+  "results": [
+    {
+      "model_id": "z-ai/glm-5.1",
+      "rank": 1,
+      "status": "timeout",
+      "response_time": 93.62,
+      "error_message": "Request timed out.",
+      "response_preview": "",
+      "is_downloadable": false,
+      "is_free_endpoint": true,
+      "tags": []
+    },
+    {
+      "model_id": "z-ai/glm4.7",
+      "rank": 2,
+      "status": "success",
+      "response_time": 2.42,
+      "error_message": "",
+      "response_preview": "",
+      "is_downloadable": false,
+      "is_free_endpoint": true,
+      "tags": []
+    },
+    {
+      "model_id": "nvidia/relighting",
+      "rank": 3,
+      "status": "failed",
+      "response_time": 1.03,
+      "error_message": "404 page not found",
+      "response_preview": "",
+      "is_downloadable": false,
+      "is_free_endpoint": true,
+      "tags": []
+    },
+    {
+      "model_id": "nvidia/nemotron-3-content-safety",
+      "rank": 4,
+      "status": "success",
+      "response_time": 1.42,
+      "error_message": "",
+      "response_preview": "User Safety: safe",
+      "is_downloadable": false,
+      "is_free_endpoint": true,
+      "tags": []
+    },
+    {
+      "model_id": "nvidia/synthetic-video-detector",
+      "rank": 5,
+      "status": "failed",
+      "response_time": 1.06,
+      "error_message": "404 page not found",
+      "response_preview": "",
+      "is_downloadable": false,
+      "is_free_endpoint": true,
+      "tags": []
+    },
+    {
+      "model_id": "nvidia/active-speaker-detection",
+      "rank": 6,
+      "status": "failed",
+      "response_time": 1.08,
+      "error_message": "404 page not found",
+      "response_preview": "",
+      "is_downloadable": false,
+      "is_free_endpoint": true,
+      "tags": []
+    },
+    {
+      "model_id": "nvidia/lipsync",
+      "rank": 7,
+      "status": "failed",
+      "response_time": 1.03,
+      "error_message": "404 page not found",
+      "response_preview": "",
+      "is_downloadable": false,
+      "is_free_endpoint": true,
+      "tags": []
+    },
+    {
+      "model_id": "nvidia/ising-calibration-1-35b-a3b",
+      "rank": 8,
+      "status": "success",
+      "response_time": 1.6,
+      "error_message": "",
+      "response_preview": "Thinking Process:\n\n1.  **Analyze the Request:** The user is asking me to reply",
+      "is_downloadable": false,
+      "is_free_endpoint": true,
+      "tags": []
+    },
+    {
+      "model_id": "minimaxai/minimax-m2.7",
+      "rank": 9,
+      "status": "timeout",
+      "response_time": 93.66,
+      "error_message": "Request timed out.",
+      "response_preview": "",
+      "is_downloadable": false,
+      "is_free_endpoint": true,
+      "tags": []
+    },
+    {
+      "model_id": "google/gemma-4-31b-it",
+      "rank": 10,
+      "status": "success",
+      "response_time": 2.44,
+      "error_message": "",
+      "response_preview": "OK",
+      "is_downloadable": false,
+      "is_free_endpoint": true,
+      "tags": []
+    }
+  ]
+}

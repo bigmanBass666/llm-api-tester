@@ -48,14 +48,19 @@ class ConfigLoader:
         return defaults
 
     @classmethod
-    def load_env(cls, env_file: Optional[str] = None) -> None:
-        """
-        加载环境变量文件
+    def setup_ssl_config(cls) -> None:
+        from .ssl_config import setup_ssl_certificates
 
-        Args:
-            env_file: 指定 env 文件路径，如 '.env.local'
-                      如果为 None，自动查找 .env.local, .env, .env.development
-        """
+        cert_path = os.getenv('SSL_CERT_FILE') or os.getenv('REQUESTS_CA_BUNDLE')
+
+        if not cert_path:
+            yaml_config = cls._load_yaml()
+            cert_path = yaml_config.get('ssl_cert_path')
+
+        setup_ssl_certificates(cert_path=cert_path)
+
+    @classmethod
+    def load_env(cls, env_file: Optional[str] = None) -> None:
         if env_file:
             if Path(env_file).exists():
                 load_dotenv(env_file, override=True)
@@ -63,7 +68,6 @@ class ConfigLoader:
             else:
                 print(f"⚠️  环境配置文件不存在: {env_file}")
         else:
-            # 自动按优先级查找
             for candidate in ['.env.local', '.env.development', '.env']:
                 if Path(candidate).exists():
                     load_dotenv(candidate, override=True)
@@ -71,6 +75,8 @@ class ConfigLoader:
                     break
             else:
                 print("ℹ️  未找到 .env 文件，将使用系统环境变量")
+
+        cls.setup_ssl_config()
 
     @classmethod
     def get_api_key(cls, platform: str) -> str:
