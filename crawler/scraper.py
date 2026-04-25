@@ -56,6 +56,27 @@ NON_TEXT_KEYWORDS = [
 class NvidiaScraper:
     """NVIDIA 模型爬虫"""
 
+    _CONFIG = {
+        'base_url': 'https://build.nvidia.com',
+        'default_url_popular': 'https://build.nvidia.com/models?orderBy=weightPopular%3ADESC&pageSize=96',
+        'default_url_recent': 'https://build.nvidia.com/models?pageSize=96',
+        'page_timeout_ms': 180000,
+        'navigation_timeout_ms': 120000,
+        'default_page_size': 96,
+        'max_page_turns': 10,
+        'max_retries': 3,
+        'retry_base_delay_s': 3,
+        'api_retry_base_delay_s': 2,
+        'max_consecutive_no_new': 3,
+        'max_cards_per_page': 50,
+        'page_load_wait_ms': 5000,
+        'pagination_wait_ms': 5000,
+        'network_idle_timeout_ms': 10000,
+        'api_url': 'https://integrate.api.nvidia.com/v1/models',
+        'api_timeout_s': 45.0,
+        'api_connect_timeout_s': 15.0,
+    }
+
     def __init__(self, headless: bool = True, filter_text_models: bool = False):
         self.headless = headless
         self.filter_text_models = filter_text_models
@@ -73,22 +94,27 @@ class NvidiaScraper:
         self.page = await self.browser.new_page()
 
         # 设置超时（增加到180秒以应对更严重的网络延迟）
-        self.page.set_default_timeout(180000)
+        self.page.set_default_timeout(self._CONFIG['page_timeout_ms'])
 
     async def close(self):
         """关闭浏览器"""
         if self.browser:
             await self.browser.close()
 
-    async def scrape_models(self, url: str = "https://build.nvidia.com/models?orderBy=weightPopular%3ADESC&pageSize=96",
-                          limit: int = 50, page_size: int = 96) -> List[ModelInfo]:
+    async def scrape_models(self, url: str = None,
+                          limit: int = 50, page_size: int = None) -> List[ModelInfo]:
         """爬取模型列表（支持分页）
 
         Args:
-            url: 页面URL（已包含pageSize参数）
+            url: 页面URL（如果为None则使用默认URL）
             limit: 目标模型数量
-            page_size: 每页显示数量（默认96，可减少HTTP请求次数）
+            page_size: 每页显示数量（默认使用_CONFIG中的值）
         """
+        if url is None:
+            url = self._CONFIG['default_url_popular']
+        if page_size is None:
+            page_size = self._CONFIG['default_page_size']
+
         print(f"🚀 开始爬取: {url} (目标: {limit} 个模型, 每页: {page_size} 个)")
 
         if not self.page:
@@ -101,18 +127,18 @@ class NvidiaScraper:
                 logger.debug(f"自动添加pageSize参数: {url}")
 
             # 访问页面（带重试机制，增强网络鲁棒性）
-            max_retries = 3
+            max_retries = self._CONFIG['max_retries']
             for attempt in range(1, max_retries + 1):
                 try:
                     logger.info(f"正在加载页面 (尝试 {attempt}/{max_retries})...")
-                    await self.page.goto(url, wait_until="networkidle", timeout=120000)
+                    await self.page.goto(url, wait_until="networkidle", timeout=self._CONFIG['navigation_timeout_ms'])
                     logger.info("✅ 页面加载成功（networkidle）")
                     break
                 except Exception as e:
                     if attempt < max_retries:
                         logger.warning(f"页面加载失败 (尝试 {attempt}/{max_retries}): {e}")
-                        # 指数退避等待：3秒、6秒、9秒
-                        wait_time = 3 * attempt
+                        # 指数退避等待
+                        wait_time = self._CONFIG['retry_base_delay_s'] * attempt
                         logger.warning(f"等待 {wait_time} 秒后重试...")
                         await asyncio.sleep(wait_time)
 
@@ -120,7 +146,7 @@ class NvidiaScraper:
                         if attempt == max_retries - 1:
                             try:
                                 logger.warning("networkidle 超时，尝试使用 domcontentloaded 策略")
-                                await self.page.goto(url, wait_until="domcontentloaded", timeout=120000)
+                                await self.page.goto(url, wait_until="domcontentloaded", timeout=self._CONFIG['navigation_timeout_ms'])
                                 logger.info("✅ 页面加载成功（domcontentloaded）")
                                 break
                             except Exception as fallback_e:
@@ -131,16 +157,16 @@ class NvidiaScraper:
                         raise e
 
             # 等待页面加载完成
-            await self.page.wait_for_timeout(5000)
+            await self.page.wait_for_timeout(self._CONFIG['page_load_wait_ms'])
 
             # 关闭可能出现的 Cookie 弹窗（防止阻挡后续操作）
             await self._close_cookie_consent()
 
             all_models = []
             page_count = 0
-            max_page_turns = 10  # 最大翻页次数限制（防止无限循环）
+            max_page_turns = self._CONFIG['max_page_turns']  # 最大翻页次数限制（防止无限循环）
             consecutive_no_new = 0
-            max_consecutive_no_new = 3
+            max_consecutive_no_new = self._CONFIG['max_consecutive_no_new']
             filtered_count = 0  # 统计过滤的非文字模型数量
 
             # 一次性获取 API 模型映射表（避免重复请求）
@@ -262,7 +288,7 @@ class NvidiaScraper:
 
             logger.debug(f"找到 {len(model_cards)} 个模型卡片 (使用 nv-card-root)")
 
-            for i, card in enumerate(model_cards[:50], 1):
+            for i, card in enumerate(model_cards[:self._CONFIG['max_cards_per_page']], 1):
                 try:
                     # ===== 初始化默认值 =====
                     model_name = f"unknown-{i}"
@@ -728,11 +754,11 @@ class NvidiaScraper:
             await next_button.click()
 
             # 等待页面加载完成（增加到5秒，让动态内容充分渲染）
-            await self.page.wait_for_timeout(5000)
+            await self.page.wait_for_timeout(self._CONFIG['pagination_wait_ms'])
 
             # 额外等待网络空闲（增加到10秒）
             try:
-                await self.page.wait_for_load_state("networkidle", timeout=10000)
+                await self.page.wait_for_load_state("networkidle", timeout=self._CONFIG['network_idle_timeout_ms'])
             except Exception:
                 pass  # 超时也继续
 
@@ -842,9 +868,9 @@ async def scrape_top_models(limit: int = 50, sort_by: str = "popular", filter_te
         # 根据排序方式构建 URL（使用pageSize=96减少分页次数）
         # NVIDIA 默认每页24个模型，设置pageSize=96可将总页数从8页降至2页
         if sort_by == "popular":
-            url = "https://build.nvidia.com/models?orderBy=weightPopular%3ADESC&pageSize=96"
+            url = scraper._CONFIG['default_url_popular']
         else:  # recent
-            url = "https://build.nvidia.com/models?pageSize=96"
+            url = scraper._CONFIG['default_url_recent']
 
         models = await scraper.scrape_models(limit=limit, url=url)
         return models

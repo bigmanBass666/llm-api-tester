@@ -7,16 +7,16 @@ import time
 import asyncio
 import httpx
 from typing import List, Optional
-from openai import OpenAI
 
 from .models import ModelInfo, ModelStore, is_reasoning_model, get_reasoning_effort
 from .logger import ModelTestLogger
+from .errors import APIError, AuthenticationError, RateLimitError, ModelNotFoundError, TimeoutError as APITimeoutError, ServerError
 
 
 class ModelTester:
     """模型测试器"""
 
-    def __init__(self, api_key: Optional[str] = None, logger: Optional[ModelTestLogger] = None):
+    def __init__(self, api_key: Optional[str] = None, logger: Optional[ModelTestLogger] = None, client=None):
         from src.ssl_config import setup_ssl_certificates
         setup_ssl_certificates()
 
@@ -25,8 +25,25 @@ class ModelTester:
             raise ValueError("请设置 NVIDIA_API_KEY 环境变量或提供 api_key 参数")
         self.base_url = "https://integrate.api.nvidia.com/v1"
         self.logger = logger
+        self._client = client
 
-    def test_single_model(self, model: ModelInfo, timeout: int = 60,
+        if client is None:
+            self._http_client = httpx.AsyncClient(
+                verify=False,
+                timeout=httpx.Timeout(connect=30, read=180, write=60, pool=10)
+            )
+        else:
+            self._http_client = None
+
+    async def _get_openai_client(self):
+        from openai import AsyncOpenAI
+        return AsyncOpenAI(
+            base_url=self.base_url,
+            api_key=self.api_key,
+            http_client=self._http_client,
+        )
+
+    async def test_single_model(self, model: ModelInfo, timeout: int = 60,
                          force_reasoning: bool = False,
                          force_normal: bool = False) -> ModelInfo:
         """测试单个模型
@@ -55,11 +72,11 @@ class ModelTester:
 
         if use_reasoning_mode:
             print(f"   🔄 使用推理模式测试")
-            return self._test_reasoning_model(model, timeout)
+            return await self._test_reasoning_model(model, timeout)
         else:
-            return self._test_normal_model(model, timeout)
+            return await self._test_normal_model(model, timeout)
 
-    def _test_reasoning_model(self, model: ModelInfo, timeout: int = 120) -> ModelInfo:
+    async def _test_reasoning_model(self, model: ModelInfo, timeout: int = 120) -> ModelInfo:
         """测试推理模型（使用流式输出）"""
         from .models import get_reasoning_effort
 
@@ -73,14 +90,9 @@ class ModelTester:
 
         try:
             start_time = time.time()
-            client = OpenAI(
-                base_url=self.base_url,
-                api_key=self.api_key,
-                http_client=httpx.Client(verify=False, timeout=timeout)
-            )
+            client = await self._get_openai_client()
 
-            # 推理模型必须使用流式输出
-            response = client.chat.completions.create(
+            response = await client.chat.completions.create(
                 model=model.id,
                 messages=[ChatMessage(role="user", content="请回复'OK'")],
                 max_tokens=100,
@@ -93,19 +105,16 @@ class ModelTester:
             full_content = ""
             reasoning_content = ""
 
-            # 处理流式响应
-            for chunk in response:
+            async for chunk in response:
                 if not hasattr(chunk, 'choices') or not chunk.choices:
                     continue
 
                 delta = chunk.choices[0].delta
 
-                # 提取推理内容
                 reasoning = getattr(delta, 'reasoning', None) or getattr(delta, 'reasoning_content', None)
                 if reasoning:
                     reasoning_content += reasoning
 
-                # 提取实际内容
                 content = getattr(delta, 'content', None)
                 if content:
                     full_content += content
@@ -143,6 +152,108 @@ class ModelTester:
 
             return model
 
+        except AuthenticationError:
+            elapsed = time.time() - start_time
+            model.test_status = "failed"
+            model.response_time = elapsed
+            error_msg = f"认证失败: 请检查API Key是否正确"
+            model.error_message = error_msg
+            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
+            model.is_reasoning = True
+
+            if self.logger:
+                self.logger.log_test_error(model.id, "AuthenticationError", error_msg[:200])
+                self.logger.mark_tested(model.id)
+            else:
+                print(f"❌ #{model.rank} {model.id} - {elapsed:.2f}s - 认证失败")
+
+            return model
+
+        except RateLimitError:
+            elapsed = time.time() - start_time
+            model.test_status = "failed"
+            model.response_time = elapsed
+            error_msg = f"请求频率超限: 请稍后重试"
+            model.error_message = error_msg
+            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
+            model.is_reasoning = True
+
+            if self.logger:
+                self.logger.log_test_error(model.id, "RateLimitError", error_msg[:200])
+                self.logger.mark_tested(model.id)
+            else:
+                print(f"❌ #{model.rank} {model.id} - {elapsed:.2f}s - 请求频率超限")
+
+            return model
+
+        except ModelNotFoundError as e:
+            elapsed = time.time() - start_time
+            model.test_status = "failed"
+            model.response_time = elapsed
+            error_msg = f"模型不存在: {e.message}"
+            model.error_message = error_msg
+            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
+            model.is_reasoning = True
+
+            if self.logger:
+                self.logger.log_test_error(model.id, "ModelNotFoundError", error_msg[:200])
+                self.logger.mark_tested(model.id)
+            else:
+                print(f"❌ #{model.rank} {model.id} - {elapsed:.2f}s - 模型不存在")
+
+            return model
+
+        except APITimeoutError:
+            elapsed = time.time() - start_time
+            model.test_status = "timeout"
+            model.response_time = elapsed
+            error_msg = f"请求超时: 服务器响应时间过长"
+            model.error_message = error_msg
+            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
+            model.is_reasoning = True
+
+            if self.logger:
+                self.logger.log_test_timeout(model.id, 120)
+                self.logger.mark_tested(model.id)
+            else:
+                print(f"⏰ #{model.rank} {model.id} - {elapsed:.2f}s - API超时")
+
+            return model
+
+        except ServerError as e:
+            elapsed = time.time() - start_time
+            model.test_status = "failed"
+            model.response_time = elapsed
+            error_msg = f"服务器错误({e.status_code}): {e.message}"
+            model.error_message = error_msg
+            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
+            model.is_reasoning = True
+
+            if self.logger:
+                self.logger.log_test_error(model.id, "ServerError", error_msg[:200])
+                self.logger.mark_tested(model.id)
+            else:
+                print(f"❌ #{model.rank} {model.id} - {elapsed:.2f}s - 服务器错误({e.status_code})")
+
+            return model
+
+        except APIError as e:
+            elapsed = time.time() - start_time
+            model.test_status = "failed"
+            model.response_time = elapsed
+            error_msg = f"API错误: {e.message}"
+            model.error_message = error_msg
+            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
+            model.is_reasoning = True
+
+            if self.logger:
+                self.logger.log_test_error(model.id, "APIError", error_msg[:200])
+                self.logger.mark_tested(model.id)
+            else:
+                print(f"❌ #{model.rank} {model.id} - {elapsed:.2f}s - API错误: {e.message[:100]}")
+
+            return model
+
         except Exception as e:
             elapsed = time.time() - start_time
             model.test_status = "failed"
@@ -159,19 +270,14 @@ class ModelTester:
 
             return model
 
-    def _test_normal_model(self, model: ModelInfo, timeout: int = 60) -> ModelInfo:
+    async def _test_normal_model(self, model: ModelInfo, timeout: int = 60) -> ModelInfo:
         """测试普通模型（非推理模型）"""
         start_time = time.time()
 
         try:
-            client = OpenAI(
-                base_url=self.base_url,
-                api_key=self.api_key,
-                http_client=httpx.Client(verify=False, timeout=timeout)
-            )
+            client = await self._get_openai_client()
 
-            # 普通模型使用标准调用
-            response = client.chat.completions.create(
+            response = await client.chat.completions.create(
                 model=model.id,
                 messages=[ChatMessage(role="user", content="请回复'OK'")],
                 max_tokens=50,
@@ -207,6 +313,102 @@ class ModelTester:
 
             return model
 
+        except AuthenticationError:
+            elapsed = time.time() - start_time
+            model.test_status = "failed"
+            model.response_time = elapsed
+            error_msg = f"认证失败: 请检查API Key是否正确"
+            model.error_message = error_msg
+            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
+
+            if self.logger:
+                self.logger.log_test_error(model.id, "AuthenticationError", error_msg[:200])
+                self.logger.mark_tested(model.id)
+            else:
+                print(f"❌ #{model.rank} {model.id} - {elapsed:.2f}s - 认证失败")
+
+            return model
+
+        except RateLimitError:
+            elapsed = time.time() - start_time
+            model.test_status = "failed"
+            model.response_time = elapsed
+            error_msg = f"请求频率超限: 请稍后重试"
+            model.error_message = error_msg
+            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
+
+            if self.logger:
+                self.logger.log_test_error(model.id, "RateLimitError", error_msg[:200])
+                self.logger.mark_tested(model.id)
+            else:
+                print(f"❌ #{model.rank} {model.id} - {elapsed:.2f}s - 请求频率超限")
+
+            return model
+
+        except ModelNotFoundError as e:
+            elapsed = time.time() - start_time
+            model.test_status = "failed"
+            model.response_time = elapsed
+            error_msg = f"模型不存在: {e.message}"
+            model.error_message = error_msg
+            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
+
+            if self.logger:
+                self.logger.log_test_error(model.id, "ModelNotFoundError", error_msg[:200])
+                self.logger.mark_tested(model.id)
+            else:
+                print(f"❌ #{model.rank} {model.id} - {elapsed:.2f}s - 模型不存在")
+
+            return model
+
+        except APITimeoutError:
+            elapsed = time.time() - start_time
+            model.test_status = "timeout"
+            model.response_time = elapsed
+            error_msg = f"请求超时: 服务器响应时间过长"
+            model.error_message = error_msg
+            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
+
+            if self.logger:
+                self.logger.log_test_timeout(model.id, 60)
+                self.logger.mark_tested(model.id)
+            else:
+                print(f"⏰ #{model.rank} {model.id} - {elapsed:.2f}s - API超时")
+
+            return model
+
+        except ServerError as e:
+            elapsed = time.time() - start_time
+            model.test_status = "failed"
+            model.response_time = elapsed
+            error_msg = f"服务器错误({e.status_code}): {e.message}"
+            model.error_message = error_msg
+            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
+
+            if self.logger:
+                self.logger.log_test_error(model.id, "ServerError", error_msg[:200])
+                self.logger.mark_tested(model.id)
+            else:
+                print(f"❌ #{model.rank} {model.id} - {elapsed:.2f}s - 服务器错误({e.status_code})")
+
+            return model
+
+        except APIError as e:
+            elapsed = time.time() - start_time
+            model.test_status = "failed"
+            model.response_time = elapsed
+            error_msg = f"API错误: {e.message}"
+            model.error_message = error_msg
+            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
+
+            if self.logger:
+                self.logger.log_test_error(model.id, "APIError", error_msg[:200])
+                self.logger.mark_tested(model.id)
+            else:
+                print(f"❌ #{model.rank} {model.id} - {elapsed:.2f}s - API错误: {e.message[:100]}")
+
+            return model
+
         except Exception as e:
             elapsed = time.time() - start_time
             model.test_status = "failed"
@@ -226,9 +428,7 @@ class ModelTester:
                               force_reasoning: bool = False,
                               force_normal: bool = False) -> ModelInfo:
         """异步测试单个模型"""
-        return await asyncio.get_event_loop().run_in_executor(
-            None, self.test_single_model, model, timeout, force_reasoning, force_normal
-        )
+        return await self.test_single_model(model, timeout, force_reasoning, force_normal)
 
     async def test_batch_models(self, models: List[ModelInfo],
                               concurrency: int = 5,
