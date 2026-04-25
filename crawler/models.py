@@ -16,6 +16,7 @@ class ModelInfo:
     rank: int = 0                    # 热度排名
     is_available: bool = True        # 是否可用
     is_reasoning: bool = False       # 是否推理模型
+    reasoning_effort: Optional[str] = None  # 推理努力程度 (low, medium, high)
     test_status: str = "pending"     # pending / testing / success / failed / timeout
     response_time: float = 0         # 响应时间(秒)
     error_message: str = ""          # 错误信息
@@ -23,7 +24,7 @@ class ModelInfo:
     token_usage: int = 0             # Token使用量
     is_downloadable: bool = False    # 是否可下载
     is_free_endpoint: bool = True    # 是否有免费端点（大多数NVIDIA模型都是免费的）
-    tags: List[str] = None           # 其他标签（context window, use case 等）
+    tags: List[str] = None          # 其他标签（context window, use case 等）
     description: Optional[str] = None  # 模型描述文本
     category: Optional[str] = None   # 模型分类标签（如 text-generation, embedding）
     is_text_model: bool = True       # 是否为文字模型（默认 True）
@@ -39,6 +40,75 @@ class ModelInfo:
             "timeout": "⏰",
         }
         return icons.get(self.test_status, "❓")
+
+
+# 预定义推理模型列表
+REASONING_MODELS = {
+    "deepseek-ai/deepseek-v4-flash",
+    "deepseek-ai/deepseek-v4-pro",
+    "z-ai/glm-5.1",
+    "z-ai/glm-4.7",
+}
+
+# 推理模型 ID 模式（用于动态匹配）
+REASONING_MODEL_PATTERNS = [
+    "deepseek-v4",
+    "glm-5.",
+    "glm-4.7",
+    "reasoning",
+    "thinking",
+]
+
+
+def is_reasoning_model(model_id: str) -> bool:
+    """
+    判断模型是否为推理模型
+
+    Args:
+        model_id: 模型 ID (如 deepseek-ai/deepseek-v4-flash)
+
+    Returns:
+        bool: 是否为推理模型
+    """
+    if not model_id:
+        return False
+
+    model_id_lower = model_id.lower()
+
+    # 检查是否在预定义列表中
+    if model_id in REASONING_MODELS:
+        return True
+
+    # 检查 ID 部分（去掉 vendor 前缀）
+    id_part = model_id.split("/")[-1].lower() if "/" in model_id else model_id.lower()
+
+    # 检查是否匹配推理模型模式
+    for pattern in REASONING_MODEL_PATTERNS:
+        if pattern.lower() in id_part:
+            return True
+
+    return False
+
+
+def get_reasoning_effort(model_id: str) -> str:
+    """
+    获取推理模型的推理努力程度
+
+    Args:
+        model_id: 模型 ID
+
+    Returns:
+        str: 推理努力程度 (low, medium, high)
+    """
+    # DeepSeek V4 系列默认 high
+    if "deepseek-v4" in model_id.lower():
+        return "high"
+
+    # GLM 系列默认 medium
+    if "glm" in model_id.lower():
+        return "medium"
+
+    return "high"  # 默认值
 
 
 @dataclass

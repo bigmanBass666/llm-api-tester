@@ -9,7 +9,7 @@ import httpx
 from typing import List, Optional
 from openai import OpenAI
 
-from .models import ModelInfo, ModelStore
+from .models import ModelInfo, ModelStore, is_reasoning_model, get_reasoning_effort
 from .logger import ModelTestLogger
 
 
@@ -26,9 +26,17 @@ class ModelTester:
         self.base_url = "https://integrate.api.nvidia.com/v1"
         self.logger = logger
 
-    def test_single_model(self, model: ModelInfo, timeout: int = 60) -> ModelInfo:
-        """测试单个模型"""
-        # 检查断点
+    def test_single_model(self, model: ModelInfo, timeout: int = 60,
+                         force_reasoning: bool = False,
+                         force_normal: bool = False) -> ModelInfo:
+        """测试单个模型
+
+        Args:
+            model: 模型信息
+            timeout: 超时时间（秒）
+            force_reasoning: 强制使用推理模式测试
+            force_normal: 强制使用普通模式测试
+        """
         if self.logger and self.logger.is_tested(model.id):
             self.logger.log('INFO', 'skip', model_id=model.id, reason='already_tested')
             print(f"⏭️  跳过 #{model.rank} {model.id}（已完成）")
@@ -42,6 +50,27 @@ class ModelTester:
         model.test_status = "testing"
         start_time = time.time()
 
+        # 判断是否为推理模型
+        use_reasoning_mode = force_reasoning or (not force_normal and is_reasoning_model(model.id))
+
+        if use_reasoning_mode:
+            print(f"   🔄 使用推理模式测试")
+            return self._test_reasoning_model(model, timeout)
+        else:
+            return self._test_normal_model(model, timeout)
+
+    def _test_reasoning_model(self, model: ModelInfo, timeout: int = 120) -> ModelInfo:
+        """测试推理模型（使用流式输出）"""
+        from .models import get_reasoning_effort
+
+        reasoning_effort = get_reasoning_effort(model.id)
+        extra_body = {
+            "chat_template_kwargs": {
+                "thinking": True,
+                "reasoning_effort": reasoning_effort
+            }
+        }
+
         try:
             client = OpenAI(
                 base_url=self.base_url,
@@ -49,7 +78,99 @@ class ModelTester:
                 http_client=httpx.Client(verify=False, timeout=timeout)
             )
 
-            # 简单测试：回复 OK
+            # 推理模型必须使用流式输出
+            response = client.chat.completions.create(
+                model=model.id,
+                messages=[{"role": "user", "content": "请回复'OK'"}],
+                max_tokens=100,
+                temperature=0.7,
+                extra_body=extra_body,
+                stream=True
+            )
+
+            elapsed = time.time() - time.time()  # 重置计时
+            start_time = time.time()
+            full_content = ""
+            reasoning_content = ""
+
+            # 处理流式响应
+            for chunk in response:
+                if not hasattr(chunk, 'choices') or not chunk.choices:
+                    continue
+
+                delta = chunk.choices[0].delta
+
+                # 提取推理内容
+                reasoning = getattr(delta, 'reasoning', None) or getattr(delta, 'reasoning_content', None)
+                if reasoning:
+                    reasoning_content += reasoning
+
+                # 提取实际内容
+                content = getattr(delta, 'content', None)
+                if content:
+                    full_content += content
+
+            elapsed = time.time() - start_time
+
+            model.test_status = "success"
+            model.response_time = elapsed
+            model.token_usage = 0  # 流式响应可能没有 usage
+            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
+            model.is_reasoning = True
+            model.reasoning_effort = reasoning_effort
+
+            if self.logger:
+                self.logger.log_test_success(model.id, elapsed, model.token_usage)
+                self.logger.mark_tested(model.id)
+            else:
+                content_preview = full_content[:50] if full_content else "[无]"
+                print(f"✅ #{model.rank} {model.id} - {elapsed:.2f}s (内容: {content_preview})")
+
+            return model
+
+        except asyncio.TimeoutError:
+            elapsed = time.time() - time.time()
+            model.test_status = "timeout"
+            model.response_time = elapsed
+            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
+            model.is_reasoning = True
+
+            if self.logger:
+                self.logger.log_test_timeout(model.id, timeout)
+                self.logger.mark_tested(model.id)
+            else:
+                print(f"⏰ #{model.rank} {model.id} - {elapsed:.2f}s - timeout")
+
+            return model
+
+        except Exception as e:
+            elapsed = time.time() - time.time()
+            model.test_status = "failed"
+            model.response_time = elapsed
+            model.error_message = str(e)[:500]
+            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
+            model.is_reasoning = True
+
+            if self.logger:
+                self.logger.log_test_error(model.id, type(e).__name__, str(e)[:200])
+                self.logger.mark_tested(model.id)
+            else:
+                print(f"❌ #{model.rank} {model.id} - {elapsed:.2f}s - {type(e).__name__}: {str(e)[:100]}")
+
+            return model
+
+    def _test_normal_model(self, model: ModelInfo, timeout: int = 60) -> ModelInfo:
+        """测试普通模型（非推理模型）"""
+        start_time = time.time()
+
+        try:
+            client = OpenAI(
+                base_url=self.base_url,
+                api_key=self.api_key,
+                http_client=httpx.Client(verify=False, timeout=timeout)
+            )
+
+            # 普通模型使用标准调用
             response = client.chat.completions.create(
                 model=model.id,
                 messages=[{"role": "user", "content": "请回复'OK'"}],
@@ -58,7 +179,6 @@ class ModelTester:
             )
 
             elapsed = time.time() - start_time
-            message = response.choices[0].message
 
             model.test_status = "success"
             model.response_time = elapsed
@@ -102,16 +222,32 @@ class ModelTester:
 
             return model
 
-    async def test_model_async(self, model: ModelInfo, timeout: int = 60) -> ModelInfo:
+    async def test_model_async(self, model: ModelInfo, timeout: int = 60,
+                              force_reasoning: bool = False,
+                              force_normal: bool = False) -> ModelInfo:
         """异步测试单个模型"""
         return await asyncio.get_event_loop().run_in_executor(
-            None, self.test_single_model, model, timeout
+            None, self.test_single_model, model, timeout, force_reasoning, force_normal
         )
 
     async def test_batch_models(self, models: List[ModelInfo],
                               concurrency: int = 5,
-                              timeout: int = 60) -> List[ModelInfo]:
-        """批量测试模型"""
+                              timeout: int = 60,
+                              timeout_reasoning: int = 180,
+                              force_reasoning: bool = False,
+                              force_normal: bool = False) -> List[ModelInfo]:
+        """批量测试模型
+
+        Args:
+            models: 模型列表
+            concurrency: 并发数
+            timeout: 普通模型超时时间（秒）
+            timeout_reasoning: 推理模型超时时间（秒，默认180秒）
+            force_reasoning: 强制所有模型使用推理模式
+            force_normal: 强制所有模型使用普通模式
+        """
+        from .models import is_reasoning_model
+
         if self.logger:
             self.logger.log('INFO', 'batch_start', total=len(models), concurrency=concurrency)
         else:
@@ -123,7 +259,13 @@ class ModelTester:
 
         async def test_with_semaphore(model):
             async with semaphore:
-                result = await self.test_model_async(model, timeout)
+                # 根据是否为推理模型选择超时时间
+                if is_reasoning_model(model.id) and not force_normal:
+                    model_timeout = timeout_reasoning
+                else:
+                    model_timeout = timeout
+
+                result = await self.test_model_async(model, model_timeout, force_reasoning, force_normal)
                 # 记录进度
                 if self.logger:
                     completed = len(results) + 1
@@ -223,7 +365,11 @@ def save_report(report: dict, filename: str):
 async def test_top_models(limit: int = 50, concurrency: int = 5,
                           use_logger: bool = True, resume: bool = False,
                           sort_by: str = "popular",
-                          filter_text_models: bool = True):
+                          filter_text_models: bool = True,
+                          reasoning_timeout: int = 180,
+                          force_reasoning: bool = False,
+                          force_normal: bool = False,
+                          manual_reasoning_models: list = None):
     """测试前N个热门模型
 
     Args:
@@ -233,6 +379,10 @@ async def test_top_models(limit: int = 50, concurrency: int = 5,
         resume: 是否启用断点续传（默认关闭）
         sort_by: 排序方式，'popular' 或 'recent'
         filter_text_models: 是否过滤非文本模型（默认 True）
+        reasoning_timeout: 推理模型超时时间（秒）
+        force_reasoning: 强制所有模型使用推理模式
+        force_normal: 强制所有模型使用普通模式
+        manual_reasoning_models: 手动指定的推理模型ID列表
     """
     from .scraper import scrape_top_models
     from .logger import create_logger
@@ -260,6 +410,15 @@ async def test_top_models(limit: int = 50, concurrency: int = 5,
             print("❌ 无法获取模型列表")
         return
 
+    # 处理手动指定的推理模型
+    if manual_reasoning_models:
+        for model in models:
+            if model.id in manual_reasoning_models:
+                model.is_reasoning = True
+                from .models import get_reasoning_effort
+                model.reasoning_effort = get_reasoning_effort(model.id)
+        print(f"🔧 手动指定 {len(manual_reasoning_models)} 个推理模型")
+
     if logger:
         logger.log('INFO', 'models_fetched', total=len(models))
     else:
@@ -272,7 +431,13 @@ async def test_top_models(limit: int = 50, concurrency: int = 5,
         print("2. 开始批量测试...")
 
     tester = ModelTester(logger=logger) if logger else ModelTester()
-    results = await tester.test_batch_models(models, concurrency=concurrency)
+    results = await tester.test_batch_models(
+        models,
+        concurrency=concurrency,
+        timeout_reasoning=reasoning_timeout,
+        force_reasoning=force_reasoning,
+        force_normal=force_normal
+    )
 
     # 保存断点（如果使用）
     if logger and resume:

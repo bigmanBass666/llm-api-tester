@@ -213,6 +213,31 @@ result = client.chat("glm-4-flash-250414", [{"role": "user", "content": "你好"
 print(result)
 ```
 
+### Q: 什么是推理模型？如何测试？
+**A**: 推理模型（如 DeepSeek V4、GLM-5.1）需要特殊的调用参数才能正常工作：
+
+```bash
+# 自动检测并使用推理模式测试 DeepSeek V4
+python crawler/main.py -n 10 --sort-by recent
+
+# 手动指定推理模型
+python crawler/main.py -n 10 --reasoning-model deepseek-ai/deepseek-v4-flash
+
+# 推理模型使用更长的超时时间（默认180秒）
+```
+
+**推理模型 vs 普通模型的区别**：
+
+| 特性 | 普通模型 | 推理模型 |
+|------|---------|----------|
+| 示例 | Qwen3 Coder, MiniMax M2 | DeepSeek V4, GLM-5.1 |
+| extra_body | 不需要 | `{"chat_template_kwargs":{"thinking":True}}` |
+| stream | 可选 | **必须** |
+| 响应字段 | `delta.content` | `delta.reasoning` + `delta.content` |
+| 超时时间 | 默认 60s | 默认 180s |
+
+系统会自动识别推理模型，也支持手动指定。
+
 ---
 
 ## 📁 项目结构

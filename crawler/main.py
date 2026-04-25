@@ -60,6 +60,12 @@ async def main():
                        help="只爬取和测试文字模型（过滤语音、图像、嵌入等非文字模型）【默认启用】")
     parser.add_argument("--no-filter", action="store_true",
                        help="禁用非文字模型过滤（将测试所有模型，包括嵌入/图像/OCR等）")
+    parser.add_argument("--reasoning-model", type=str, action="append",
+                       help="手动指定推理模型ID（可多次使用），将使用推理模式测试")
+    parser.add_argument("--force-normal", action="store_true",
+                       help="强制所有模型使用普通模式测试（禁用自动推理模型检测）")
+    parser.add_argument("--reasoning-timeout", type=int, default=180,
+                       help="推理模型超时时间(秒) (默认: 180)")
 
     args = parser.parse_args()
 
@@ -121,7 +127,11 @@ async def main():
                 use_logger=not args.no_log,
                 resume=args.resume,
                 sort_by=args.sort_by,
-                filter_text_models=not args.no_filter
+                filter_text_models=not args.no_filter,
+                reasoning_timeout=args.reasoning_timeout,
+                force_reasoning=bool(args.reasoning_model),
+                force_normal=args.force_normal,
+                manual_reasoning_models=args.reasoning_model
             )
 
         if logger:
