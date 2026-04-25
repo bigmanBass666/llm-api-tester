@@ -1,49 +1,45 @@
-"""
-API 客户端基类
-定义统一客户端接口
-"""
-
 from abc import ABC, abstractmethod
-from typing import List, Iterator
+from typing import AsyncIterator, List
 import sys
 import os
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from src.models import ChatMessage
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+from src.models import ModelInfo, ChatMessage
 
 
 class BasePlatformClient(ABC):
-    """API 客户端基类，所有平台客户端需继承此类"""
-
+    """平台客户端基类 - 所有平台客户端的统一接口"""
+    
     platform_name: str = "base"
+
+    def __init__(self, api_key: str = None, base_url: str = None, **kwargs):
+        self.api_key = api_key
+        self.base_url = base_url
 
     @abstractmethod
     def chat(self, model: str, messages: List[ChatMessage], **kwargs) -> str:
-        """
-        发送聊天请求
-        Args:
-            model: 模型ID
-            messages: 消息列表
-            **kwargs: 其他参数（max_tokens, temperature 等）
-        Returns:
-            模型回复文本
-        """
+        """发送聊天请求"""
         pass
 
     @abstractmethod
-    def list_models(self) -> List[dict]:
-        """获取可用模型列表"""
+    async def chat_stream(self, model: str, messages: List[ChatMessage], **kwargs) -> AsyncIterator[str]:
+        """流式聊天（异步迭代器）"""
+        pass
+
+    @abstractmethod
+    def list_models(self) -> List[ModelInfo]:
+        """列出可用模型 - 返回统一的 ModelInfo 对象列表"""
+        pass
+
+    @abstractmethod
+    def test_connection(self) -> bool:
+        """测试 API 连接是否正常"""
         pass
 
     @abstractmethod
     def close(self):
-        """关闭客户端"""
+        """关闭客户端连接、释放资源"""
         pass
 
-    def test_connection(self) -> bool:
-        """测试连接"""
-        try:
-            models = self.list_models()
-            return len(models) > 0
-        except Exception:
-            return False
+    def __repr__(self):
+        return f"<{self.__class__.__name__}(platform={self.platform_name})>"

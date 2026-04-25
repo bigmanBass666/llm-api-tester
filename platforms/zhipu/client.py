@@ -4,13 +4,12 @@
 
 import os
 import httpx
-from typing import List
+from typing import AsyncIterator, List
 from openai import OpenAI
 
 import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from src.models import ChatMessage
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+from src.models import ModelInfo, ChatMessage
 from platforms.base.base_client import BasePlatformClient
 
 
@@ -30,11 +29,10 @@ class ZhipuClient(BasePlatformClient):
     }
 
     def __init__(self, api_key: str, base_url: str = "https://open.bigmodel.cn/api/paas/v4"):
+        super().__init__(api_key=api_key, base_url=base_url)
         from src.ssl_config import setup_ssl_certificates
         setup_ssl_certificates()
 
-        self.api_key = api_key
-        self.base_url = base_url
         self._client: OpenAI = None
 
     @property
@@ -70,9 +68,30 @@ class ZhipuClient(BasePlatformClient):
 
         return response or ""
 
-    def list_models(self) -> List[dict]:
-        """获取可用模型列表"""
-        return [{"id": v, "name": k} for k, v in self.FREE_MODELS.items()]
+    async def chat_stream(self, model: str, messages: List[ChatMessage], **kwargs) -> AsyncIterator[str]:
+        """流式聊天（异步迭代器）"""
+        raise NotImplementedError("ZhipuClient 暂不支持流式聊天")
+
+    def list_models(self) -> List[ModelInfo]:
+        """获取可用模型列表 - 返回统一的 ModelInfo 对象"""
+        return [
+            ModelInfo(
+                id=v,
+                name=k,
+                vendor="zhipu",
+                is_free_endpoint=True,
+                is_available=True,
+            )
+            for k, v in self.FREE_MODELS.items()
+        ]
+
+    def test_connection(self) -> bool:
+        """测试 API 连接是否正常"""
+        try:
+            models = self.list_models()
+            return len(models) > 0
+        except Exception:
+            return False
 
     def close(self):
         """关闭客户端"""

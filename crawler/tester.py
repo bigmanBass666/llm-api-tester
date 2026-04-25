@@ -82,7 +82,7 @@ class ModelTester:
             # 推理模型必须使用流式输出
             response = client.chat.completions.create(
                 model=model.id,
-                messages=[{"role": "user", "content": "请回复'OK'"}],
+                messages=[ChatMessage(role="user", content="请回复'OK'")],
                 max_tokens=100,
                 temperature=0.7,
                 extra_body=extra_body,
@@ -173,7 +173,7 @@ class ModelTester:
             # 普通模型使用标准调用
             response = client.chat.completions.create(
                 model=model.id,
-                messages=[{"role": "user", "content": "请回复'OK'"}],
+                messages=[ChatMessage(role="user", content="请回复'OK'")],
                 max_tokens=50,
                 temperature=0.7
             )
