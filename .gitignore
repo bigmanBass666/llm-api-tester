@@ -21,6 +21,12 @@ wheels/
 *.egg
 MANIFEST
 
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
 # IDE
 .vscode/
 .idea/
@@ -38,6 +44,7 @@ Thumbs.db
 
 # Logs
 *.log
+logs/
 
 # API Keys & Secrets (never commit these!)
 .env
@@ -72,10 +79,12 @@ t_filter*.py
 
 # Test outputs (可能包含敏感数据)
 test_outputs/
-crawler/reports/*.json      # JSON 报告可能包含 API 响应
-docs/platforms/raw-data/*.json
-logs/
-*.log
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
 
 # Large files
 *.zip
