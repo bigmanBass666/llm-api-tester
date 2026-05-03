@@ -9,28 +9,28 @@ from src.models import ModelInfo, ChatMessage
 
 class BasePlatformClient(ABC):
     """平台客户端基类 - 所有平台客户端的统一接口
-    
+
     提供统一的初始化、SSL配置、错误处理等基础功能。
     所有平台客户端都应继承此类。
     """
-    
+
     platform_name: str = "base"
 
     def __init__(self, api_key: str = None, base_url: str = None, **kwargs):
         self.api_key = api_key
         self.base_url = base_url
-        
+
         # 统一的初始化流程
         self._setup_ssl_config()
         self._validate_config()
-        
+
         # 调用子类的自定义初始化（如果存在）
         if hasattr(self, '_custom_init'):
             self._custom_init(**kwargs)
 
     def _setup_ssl_config(self):
         """统一的 SSL 配置初始化
-        
+
         子类可覆盖此方法以实现自定义 SSL 配置。
         默认行为：尝试从 src.ssl_config 加载证书配置。
         """
@@ -42,7 +42,7 @@ class BasePlatformClient(ABC):
 
     def _validate_config(self):
         """统一的配置验证
-        
+
         子类可覆盖此方法以添加特定平台的验证逻辑。
         默认行为：检查 API Key 是否存在。
         """

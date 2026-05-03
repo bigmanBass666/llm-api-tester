@@ -1,40 +1,30 @@
 repos:
-  # 检测敏感信息（API 密钥、密码、私钥等）
   - repo: https://github.com/Yelp/detect-secrets
     rev: v1.5.0
     hooks:
       - id: detect-secrets
-        name: 检测敏感信息（密钥/密码/凭证）
-        description: 自动检测代码中可能泄露的 API 密钥、密码和凭证
+        name: 检测敏感信息
         exclude: |
           (?x)^(
-            .env.example|          # 环境变量模板（允许占位符）
-            .*\.md$|              # 文档文件
-            tests/.*|             # 测试文件中的 mock 数据
-            examples/.*           # 示例代码
+            .env.example|
+            tests/.*|
           )$
         args: ['--baseline', '.secrets.baseline']
 
-  # 检测私钥文件
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:
       - id: detect-private-key
         name: 检测私钥文件
-        description: 防止提交 SSH 私钥、SSL 证书等文件
 
       - id: check-merge-conflict
         name: 检查合并冲突
-        description: 防止提交包含合并冲突标记的文件
 
       - id: check-yaml
         name: 检查 YAML 语法
-        description: 确保 YAML 文件语法正确
 
       - id: trailing-whitespace
         name: 删除行尾空格
-        description: 自动删除行尾多余的空格
 
       - id: end-of-file-fixer
         name: 确保文件末尾换行
-        description: 确保文件以换行符结尾
