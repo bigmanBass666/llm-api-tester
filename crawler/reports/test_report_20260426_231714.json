@@ -1,0 +1,376 @@
+{
+  "summary": {
+    "total": 40,
+    "success": 30,
+    "failed": 10,
+    "timeout": 0,
+    "testing": 0,
+    "pending": 0
+  },
+  "successful_models": [
+    {
+      "rank": 21,
+      "id": "nvidia/llama-3.1-nemotron-nano-vl-8b-v1",
+      "response_time": 0.3916928768157959,
+      "token_usage": 26,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 20,
+      "id": "openai/gpt-oss-20b",
+      "response_time": 0.4817626476287842,
+      "token_usage": 103,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 45,
+      "id": "mistralai/mistral-medium-3-instruct",
+      "response_time": 0.6811485290527344,
+      "token_usage": 11,
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 22,
+      "id": "mistralai/mistral-small-4-119b-2603",
+      "response_time": 0.7736568450927734,
+      "token_usage": 23,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 48,
+      "id": "stockmark/stockmark-2-100b-instruct",
+      "response_time": 0.7828369140625,
+      "token_usage": 15,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 10,
+      "id": "nvidia/nemotron-3-nano-30b-a3b",
+      "response_time": 0.8531062602996826,
+      "token_usage": 72,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 6,
+      "id": "meta/llama-3.1-8b-instruct",
+      "response_time": 0.8781266212463379,
+      "token_usage": 43,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 19,
+      "id": "qwen/qwen3.5-122b-a10b",
+      "response_time": 1.0777685642242432,
+      "token_usage": 19,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 14,
+      "id": "meta/llama-4-maverick-17b-128e-instruct",
+      "response_time": 1.0799884796142578,
+      "token_usage": 17,
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 13,
+      "id": "meta/llama-3.3-70b-instruct",
+      "response_time": 1.1228625774383545,
+      "token_usage": 43,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 23,
+      "id": "google/gemma-3-27b-it",
+      "response_time": 1.137371301651001,
+      "token_usage": 17,
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 41,
+      "id": "qwen/qwen3-next-80b-a3b-thinking",
+      "response_time": 1.1909546852111816,
+      "token_usage": 0,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 32,
+      "id": "meta/llama-3.1-70b-instruct",
+      "response_time": 1.2307889461517334,
+      "token_usage": 43,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 43,
+      "id": "mistralai/ministral-14b-instruct-2512",
+      "response_time": 1.7510855197906494,
+      "token_usage": 11,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 16,
+      "id": "stepfun-ai/step-3.5-flash",
+      "response_time": 1.8966901302337646,
+      "token_usage": 67,
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 36,
+      "id": "nvidia/llama-3.3-nemotron-super-49b-v1",
+      "response_time": 2.219916820526123,
+      "token_usage": 27,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 5,
+      "id": "moonshotai/kimi-k2-instruct",
+      "response_time": 2.628671646118164,
+      "token_usage": 23,
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 3,
+      "id": "openai/gpt-oss-120b",
+      "response_time": 2.9245877265930176,
+      "token_usage": 115,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 31,
+      "id": "mistralai/devstral-2-123b-instruct-2512",
+      "response_time": 3.4355549812316895,
+      "token_usage": 11,
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 1,
+      "id": "nvidia/nemotron-3-super-120b-a12b",
+      "response_time": 3.4969871044158936,
+      "token_usage": 36,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 25,
+      "id": "nvidia/nemotron-nano-12b-v2-vl",
+      "response_time": 5.282628774642944,
+      "token_usage": 23,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 29,
+      "id": "mistralai/mistral-nemotron",
+      "response_time": 5.31619930267334,
+      "token_usage": 11,
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 30,
+      "id": "qwen/qwen3-coder-480b-a35b-instruct",
+      "response_time": 6.438672780990601,
+      "token_usage": 15,
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 4,
+      "id": "qwen/qwen3-next-80b-a3b-instruct",
+      "response_time": 7.312687873840332,
+      "token_usage": 15,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 49,
+      "id": "bytedance/seed-oss-36b-instruct",
+      "response_time": 8.08835768699646,
+      "token_usage": 45,
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 27,
+      "id": "meta/llama-3.1-405b-instruct",
+      "response_time": 18.396554708480835,
+      "token_usage": 43,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 2,
+      "id": "moonshotai/kimi-k2.5",
+      "response_time": 33.62146258354187,
+      "token_usage": 63,
+      "tags": [
+        "deprecation in 5d",
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 12,
+      "id": "minimaxai/minimax-m2.5",
+      "response_time": 37.06955695152283,
+      "token_usage": 70,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 34,
+      "id": "google/gemma-4-31b-it",
+      "response_time": 61.46672010421753,
+      "token_usage": 20,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 33,
+      "id": "minimaxai/minimax-m2.7",
+      "response_time": 110.67373466491699,
+      "token_usage": 93,
+      "tags": [
+        "free endpoint"
+      ]
+    }
+  ],
+  "failed_models": [
+    {
+      "rank": 8,
+      "id": "qwen/qwen3.5-397b-a17b",
+      "status": "failed",
+      "error": "Connection error.",
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 9,
+      "id": "deepseek-ai/deepseek-v3.2",
+      "status": "failed",
+      "error": "Connection error.",
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 17,
+      "id": "deepseek-ai/deepseek-v3.1-terminus",
+      "status": "failed",
+      "error": "Connection error.",
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 24,
+      "id": "mistralai/mistral-large",
+      "status": "failed",
+      "error": "Error code: 404 - {'status': 404, 'title': 'Not Found', 'detail': \"Function '767b5b9a-3f9d-4c1d-86e8-fa861988cee7': Not found for account 'u7YWjHY4prn5fTs-Hx1M5dDHIEcUFvfHdnz1p-COyt8'\"}",
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 28,
+      "id": "moonshotai/kimi-k2-thinking",
+      "status": "failed",
+      "error": "Connection error.",
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 35,
+      "id": "qwen/qwen2.5-coder-32b-instruct",
+      "status": "failed",
+      "error": "Connection error.",
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 38,
+      "id": "z-ai/glm-4.7",
+      "status": "failed",
+      "error": "404 page not found",
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 39,
+      "id": "mistralai/mixtral-8x22b-instruct",
+      "status": "failed",
+      "error": "404 page not found",
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 46,
+      "id": "meta/llama-3.2-90b-vision-instruct",
+      "status": "failed",
+      "error": "Connection error.",
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 47,
+      "id": "mistralai/magistral-small-2506",
+      "status": "failed",
+      "error": "Error code: 400 - {'status': 400, 'title': 'Bad Request', 'detail': \"Function id '9080da86-7a09-42de-aca4-e86ee2dc7297': DEGRADED function cannot be invoked\"}",
+      "tags": [
+        "free endpoint"
+      ]
+    }
+  ],
+  "timestamp": "2026-04-26 23:17:14"
+}

@@ -1,0 +1,196 @@
+{
+  "summary": {
+    "total": 20,
+    "success": 18,
+    "failed": 2,
+    "timeout": 0,
+    "testing": 0,
+    "pending": 0
+  },
+  "successful_models": [
+    {
+      "rank": 14,
+      "id": "meta/llama-4-maverick-17b-128e-instruct",
+      "response_time": 0.3511009216308594,
+      "token_usage": 17,
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 22,
+      "id": "mistralai/mistral-small-4-119b-2603",
+      "response_time": 0.3515758514404297,
+      "token_usage": 23,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 13,
+      "id": "meta/llama-3.3-70b-instruct",
+      "response_time": 0.3969991207122803,
+      "token_usage": 43,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 20,
+      "id": "openai/gpt-oss-20b",
+      "response_time": 0.4360814094543457,
+      "token_usage": 89,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 19,
+      "id": "qwen/qwen3.5-122b-a10b",
+      "response_time": 0.4519038200378418,
+      "token_usage": 19,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 23,
+      "id": "google/gemma-3-27b-it",
+      "response_time": 0.7791683673858643,
+      "token_usage": 17,
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 16,
+      "id": "stepfun-ai/step-3.5-flash",
+      "response_time": 1.1904075145721436,
+      "token_usage": 67,
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 6,
+      "id": "meta/llama-3.1-8b-instruct",
+      "response_time": 1.6389546394348145,
+      "token_usage": 43,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 4,
+      "id": "qwen/qwen3-next-80b-a3b-instruct",
+      "response_time": 1.6773629188537598,
+      "token_usage": 15,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 10,
+      "id": "nvidia/nemotron-3-nano-30b-a3b",
+      "response_time": 1.7337687015533447,
+      "token_usage": 72,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 3,
+      "id": "openai/gpt-oss-120b",
+      "response_time": 1.910144329071045,
+      "token_usage": 108,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 5,
+      "id": "moonshotai/kimi-k2-instruct",
+      "response_time": 2.0065228939056396,
+      "token_usage": 23,
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 1,
+      "id": "nvidia/nemotron-3-super-120b-a12b",
+      "response_time": 3.213768482208252,
+      "token_usage": 72,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 2,
+      "id": "moonshotai/kimi-k2.5",
+      "response_time": 3.2197186946868896,
+      "token_usage": 51,
+      "tags": [
+        "deprecation in 5d",
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 21,
+      "id": "nvidia/llama-3.1-nemotron-nano-vl-8b-v1",
+      "response_time": 4.267541885375977,
+      "token_usage": 26,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 17,
+      "id": "deepseek-ai/deepseek-v3.1-terminus",
+      "response_time": 5.7271809577941895,
+      "token_usage": 61,
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 8,
+      "id": "qwen/qwen3.5-397b-a17b",
+      "response_time": 6.2953407764434814,
+      "token_usage": 19,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 12,
+      "id": "minimaxai/minimax-m2.5",
+      "response_time": 29.6170494556427,
+      "token_usage": 70,
+      "tags": [
+        "downloadable"
+      ]
+    }
+  ],
+  "failed_models": [
+    {
+      "rank": 9,
+      "id": "deepseek-ai/deepseek-v3.2",
+      "status": "failed",
+      "error": "Connection error.",
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 24,
+      "id": "mistralai/mistral-large",
+      "status": "failed",
+      "error": "Error code: 404 - {'status': 404, 'title': 'Not Found', 'detail': \"Function '767b5b9a-3f9d-4c1d-86e8-fa861988cee7': Not found for account 'u7YWjHY4prn5fTs-Hx1M5dDHIEcUFvfHdnz1p-COyt8'\"}",
+      "tags": [
+        "free endpoint"
+      ]
+    }
+  ],
+  "timestamp": "2026-04-26 20:10:28"
+}

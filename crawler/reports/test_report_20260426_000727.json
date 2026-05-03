@@ -1,0 +1,105 @@
+{
+  "summary": {
+    "total": 10,
+    "success": 6,
+    "failed": 4,
+    "timeout": 0,
+    "testing": 0,
+    "pending": 0
+  },
+  "successful_models": [
+    {
+      "rank": 1,
+      "id": "deepseek-ai/deepseek-v4-flash",
+      "response_time": 0.40979576110839844,
+      "token_usage": 0,
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 10,
+      "id": "nvidia/ising-calibration-1-35b-a3b",
+      "response_time": 0.99139404296875,
+      "token_usage": 50,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 2,
+      "id": "deepseek-ai/deepseek-v4-pro",
+      "response_time": 1.1926887035369873,
+      "token_usage": 0,
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 6,
+      "id": "nvidia/nemotron-3-content-safety",
+      "response_time": 2.415832042694092,
+      "token_usage": 435,
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 14,
+      "id": "mistralai/mistral-small-4-119b-2603",
+      "response_time": 6.347732067108154,
+      "token_usage": 23,
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 12,
+      "id": "google/gemma-4-31b-it",
+      "response_time": 159.14878630638123,
+      "token_usage": 20,
+      "tags": [
+        "downloadable"
+      ]
+    }
+  ],
+  "failed_models": [
+    {
+      "rank": 3,
+      "id": "z-ai/glm-5.1",
+      "status": "failed",
+      "error": "Connection error.",
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 4,
+      "id": "z-ai/glm-4.7",
+      "status": "failed",
+      "error": "404 page not found",
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 11,
+      "id": "minimaxai/minimax-m2.7",
+      "status": "failed",
+      "error": "Connection error.",
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 13,
+      "id": "nvidia/llama-nemotron-rerank-vl-1b-v2",
+      "status": "failed",
+      "error": "404 page not found",
+      "tags": [
+        "downloadable"
+      ]
+    }
+  ],
+  "timestamp": "2026-04-26 00:07:27"
+}

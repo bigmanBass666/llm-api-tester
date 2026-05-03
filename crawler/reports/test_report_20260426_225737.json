@@ -1,0 +1,92 @@
+{
+  "summary": {
+    "total": 11,
+    "success": 9,
+    "failed": 2,
+    "timeout": 0,
+    "testing": 0,
+    "pending": 0
+  },
+  "successful_models": [
+    {
+      "rank": 3,
+      "id": "meta/llama-4-maverick-17b-128e-instruct",
+      "response_time": 3.247042417526245,
+      "token_usage": 17,
+      "tags": []
+    },
+    {
+      "rank": 6,
+      "id": "moonshotai/kimi-k2-instruct",
+      "response_time": 4.161566972732544,
+      "token_usage": 23,
+      "tags": []
+    },
+    {
+      "rank": 9,
+      "id": "qwen/qwen3.5-122b-a10b",
+      "response_time": 5.28346848487854,
+      "token_usage": 19,
+      "tags": []
+    },
+    {
+      "rank": 8,
+      "id": "stepfun-ai/step-3.5-flash",
+      "response_time": 7.353499889373779,
+      "token_usage": 67,
+      "tags": []
+    },
+    {
+      "rank": 1,
+      "id": "qwen/qwen3-coder-480b-a35b-instruct",
+      "response_time": 7.540088415145874,
+      "token_usage": 15,
+      "tags": []
+    },
+    {
+      "rank": 4,
+      "id": "deepseek-ai/deepseek-v3.1-terminus",
+      "response_time": 12.028806209564209,
+      "token_usage": 61,
+      "tags": []
+    },
+    {
+      "rank": 7,
+      "id": "z-ai/glm4.7",
+      "response_time": 30.111075401306152,
+      "token_usage": 60,
+      "tags": []
+    },
+    {
+      "rank": 5,
+      "id": "minimaxai/minimax-m2.7",
+      "response_time": 47.68237042427063,
+      "token_usage": 93,
+      "tags": []
+    },
+    {
+      "rank": 2,
+      "id": "google/gemma-4-31b-it",
+      "response_time": 177.6889133453369,
+      "token_usage": 20,
+      "tags": []
+    }
+  ],
+  "failed_models": [
+    {
+      "rank": 10,
+      "id": "google/gemma-7b",
+      "status": "failed",
+      "error": "Error code: 410 - {'type': 'about:blank', 'title': 'Gone', 'status': 410, 'detail': \"The model 'google/gemma-7b' has reached its end of life on 2026-04-15T00:00:00Z and is no longer available.\"}",
+      "tags": []
+    },
+    {
+      "rank": 11,
+      "id": "microsoft/phi-3-mini-128k-instruct",
+      "status": "failed",
+      "error": "Error code: 410 - {'type': 'about:blank', 'title': 'Gone', 'status': 410, 'detail': \"The model 'microsoft/phi-3-mini-128k-instruct' has reached its end of life on 2026-04-15T00:00:00Z and is no longer available.\"}",
+      "tags": []
+    }
+  ],
+  "timestamp": "2026-04-26 22:57:37"
+}

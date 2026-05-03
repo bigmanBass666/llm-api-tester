@@ -1,0 +1,104 @@
+{
+  "summary": {
+    "total": 10,
+    "success": 0,
+    "failed": 10,
+    "timeout": 0,
+    "testing": 0,
+    "pending": 0
+  },
+  "successful_models": [],
+  "failed_models": [
+    {
+      "rank": 1,
+      "id": "deepseek-ai/deepseek-v4-flash",
+      "status": "failed",
+      "error": "Object of type ChatMessage is not JSON serializable",
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 2,
+      "id": "deepseek-ai/deepseek-v4-pro",
+      "status": "failed",
+      "error": "Object of type ChatMessage is not JSON serializable",
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 3,
+      "id": "z-ai/glm-5.1",
+      "status": "failed",
+      "error": "Object of type ChatMessage is not JSON serializable",
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 4,
+      "id": "z-ai/glm-4.7",
+      "status": "failed",
+      "error": "Object of type ChatMessage is not JSON serializable",
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 6,
+      "id": "nvidia/nemotron-3-content-safety",
+      "status": "failed",
+      "error": "Object of type ChatMessage is not JSON serializable",
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 10,
+      "id": "nvidia/ising-calibration-1-35b-a3b",
+      "status": "failed",
+      "error": "Object of type ChatMessage is not JSON serializable",
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 11,
+      "id": "minimaxai/minimax-m2.7",
+      "status": "failed",
+      "error": "Object of type ChatMessage is not JSON serializable",
+      "tags": [
+        "free endpoint"
+      ]
+    },
+    {
+      "rank": 12,
+      "id": "google/gemma-4-31b-it",
+      "status": "failed",
+      "error": "Object of type ChatMessage is not JSON serializable",
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 13,
+      "id": "nvidia/llama-nemotron-rerank-vl-1b-v2",
+      "status": "failed",
+      "error": "Object of type ChatMessage is not JSON serializable",
+      "tags": [
+        "downloadable"
+      ]
+    },
+    {
+      "rank": 14,
+      "id": "mistralai/mistral-small-4-119b-2603",
+      "status": "failed",
+      "error": "Object of type ChatMessage is not JSON serializable",
+      "tags": [
+        "downloadable"
+      ]
+    }
+  ],
+  "timestamp": "2026-04-25 23:26:50"
+}
