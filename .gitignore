@@ -79,6 +79,18 @@ check_*.py
 *_debug.py
 *.png
 t_filter*.py
+test_config_quick.py
+
+# Generated test reports and raw data
+docs/nvidia/
+docs/raw-data/
+
+# Crawler reports (generated output)
+crawler/reports/
+
+# Accidental terminal-generated files
+rc.*
+criptsshell*
 
 # Test outputs (可能包含敏感数据)
 test_outputs/
