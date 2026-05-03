@@ -21,7 +21,7 @@ def example_1_direct_api_key():
     try:
         # 这种方式会自动从环境变量获取 key
         # 无需手动传递 api_key 参数
-        result = nvidia_chat("minimax-m2.7", "Hello")
+        result = nvidia_chat("minimaxai/minimax-m2.7", "Hello")
         print(f"✅ 调用成功: {result[:50]}...")
     except ValueError as e:
         print(f"❌ 需要配置 API key: {e}")

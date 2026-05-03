@@ -24,10 +24,8 @@ class NvidiaClient(BasePlatformClient):
     platform_display_name = "NVIDIA NIM"
 
     def __init__(self, api_key: str = None, base_url: Optional[str] = None, **kwargs):
-        # 不再需要手动调用 SSL 设置，基类会自动处理
         self._client: Optional[OpenAI] = None
 
-        # 从配置加载器加载配置
         self._load_config()
 
         super().__init__(
@@ -44,17 +42,7 @@ class NvidiaClient(BasePlatformClient):
         if not config:
             raise ValueError(f"未找到 {self.platform_name} 平台的配置，请检查 configs/platforms.yaml")
 
-        # 设置平台基础 URL
         self._platform_base_url = config.base_url or "https://integrate.api.nvidia.com/v1"
-
-        # 加载免费模型映射
-        client_config = PlatformConfigLoader.get_client_config(self.platform_name)
-        if client_config:
-            self.FREE_MODELS = client_config.free_models
-        else:
-            # 如果没有配置，使用空字典（向后兼容）
-            print(f"⚠️ 未找到 {self.platform_name} 平台的客户端配置，FREE_MODELS 将为空")
-            self.FREE_MODELS = {}
 
     @property
     def client(self) -> OpenAI:
@@ -138,18 +126,6 @@ class NvidiaClient(BasePlatformClient):
             self._client.close()
             self._client = None
 
-    def quick_chat(self, model_key: str, message: str, **kwargs) -> str:
-        if model_key not in self.FREE_MODELS:
-            raise ValueError(
-                f"未知模型: {model_key}，可用模型: {list(self.FREE_MODELS.keys())}"
-            )
-
-        return self.chat(
-            self.FREE_MODELS[model_key],
-            [ChatMessage(role="user", content=message)],
-            **kwargs
-        )
-
 
 # 注册平台（使用装饰器）
 NvidiaClient = register_platform(
@@ -161,17 +137,3 @@ NvidiaClient = register_platform(
     description="NVIDIA NIM 提供的多种开源大模型 API",
     website="https://build.nvidia.com"
 )(NvidiaClient)
-
-
-def nvidia_chat(model_key: str, message: str, api_key: Optional[str] = None, **kwargs) -> str:
-    """快速调用 NVIDIA 模型（便捷函数）"""
-    if api_key is None:
-        api_key = os.environ.get("NVIDIA_API_KEY")
-    if not api_key:
-        raise ValueError("请设置 NVIDIA_API_KEY 环境变量或提供 api_key 参数")
-
-    client = NvidiaClient(api_key=api_key)
-    try:
-        return client.quick_chat(model_key, message, **kwargs)
-    finally:
-        client.close()

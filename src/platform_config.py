@@ -31,7 +31,6 @@ class ScraperConfig:
 @dataclass
 class ClientConfig:
     """客户端配置"""
-    free_models: Dict[str, str] = field(default_factory=dict)
     quick_chat_models: Dict[str, str] = field(default_factory=dict)
 
 
@@ -135,7 +134,6 @@ class PlatformConfigLoader:
         client_config = None
         if client_data:
             client_config = ClientConfig(
-                free_models=client_data.get('free_models', {}),
                 quick_chat_models=client_data.get('quick_chat_models', {}),
             )
 
@@ -215,19 +213,6 @@ class PlatformConfigLoader:
         """
         scraper_config = cls.get_scraper_config(platform_name)
         return scraper_config.non_text_keywords if scraper_config else []
-
-    @classmethod
-    def get_free_models(cls, platform_name: str) -> Dict[str, str]:
-        """获取免费模型映射（便捷方法）
-
-        Args:
-            platform_name: 平台名称
-
-        Returns:
-            免费模型映射字典，如果未找到则返回空字典
-        """
-        client_config = cls.get_client_config(platform_name)
-        return client_config.free_models if client_config else {}
 
     @classmethod
     def get_selectors(cls, platform_name: str) -> Dict[str, str]:

@@ -1,9 +1,9 @@
 """
-NVIDIA 模型批量测试入口脚本
+智谱模型批量测试入口脚本
 
 使用方法:
-    python scripts/test_nvidia.py
-    python scripts/test_nvidia.py -n 50 -c 3
+    python scripts/run_zhipu.py
+    python scripts/run_zhipu.py -c 3
 """
 
 import asyncio
@@ -14,15 +14,15 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.config_loader import ConfigLoader
-from platforms.nvidia import NvidiaScraper, NvidiaTester
+from platforms.zhipu import ZhipuScraper, ZhipuTester
 from report import ReportGenerator
 
 
 async def main():
     ConfigLoader.load_env('.env.local')
-    defaults = ConfigLoader.get_platform_defaults('nvidia')
+    defaults = ConfigLoader.get_platform_defaults('zhipu')
 
-    parser = argparse.ArgumentParser(description="NVIDIA 模型批量测试")
+    parser = argparse.ArgumentParser(description="智谱模型批量测试")
     parser.add_argument("-n", "--number", type=int,
                        default=defaults.get('number', 20),
                        help="测试的模型数量")
@@ -32,34 +32,27 @@ async def main():
     parser.add_argument("--timeout", type=int,
                        default=defaults.get('timeout', 60),
                        help="单个模型测试超时时间(秒)")
-    parser.add_argument("--sort-by", type=str,
-                       default="popular",
-                       choices=["popular", "recent"],
-                       help="排序方式: popular(热度) 或 recent(最新发布)")
 
     args = parser.parse_args()
 
     print("=" * 60)
-    print("🔍 NVIDIA 模型批量测试")
+    print("🔍 智谱模型批量测试")
     print("=" * 60)
 
-    api_key = os.getenv('NVIDIA_API_KEY')
+    api_key = os.getenv('ZHIPU_API_KEY')
 
     if not api_key:
-        print("❌ 错误: 请先配置 NVIDIA_API_KEY")
-        print("   参考: docs/API_KEY_SETUP.md")
+        print("❌ 错误: 请先配置 ZHIPU_API_KEY")
         sys.exit(1)
 
     print(f"📋 配置:")
     print(f"   模型数量: {args.number}")
     print(f"   并发数: {args.concurrency}")
     print(f"   超时时间: {args.timeout}s")
-    print(f"   排序方式: {args.sort_by}")
     print()
 
-    scraper = NvidiaScraper(headless=True)
-    models = await scraper.scrape(limit=args.number, sort_by=args.sort_by)
-    await scraper.close()
+    scraper = ZhipuScraper()
+    models = await scraper.scrape(limit=args.number)
 
     if not models:
         print("❌ 错误: 无法获取模型列表")
@@ -68,14 +61,14 @@ async def main():
     print(f"\n🚀 开始测试 {len(models)} 个模型...")
     print("-" * 60)
 
-    tester = NvidiaTester(api_key=api_key)
+    tester = ZhipuTester(api_key=api_key)
     results = await tester.batch_test(models, concurrency=args.concurrency, timeout=args.timeout)
 
     print()
     print("-" * 60)
     print("📊 测试完成! 生成报告...")
 
-    generator = ReportGenerator(platform="nvidia")
+    generator = ReportGenerator(platform="zhipu")
     files = generator.generate(results)
 
     print(f"✅ Markdown 报告: {files['markdown']}")

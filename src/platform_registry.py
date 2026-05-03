@@ -10,6 +10,17 @@ from .models import ModelInfo, ChatMessage
 
 
 @dataclass
+class PlatformSpec:
+    """平台自描述规格 — 每个平台在 __init__.py 中声明"""
+    name: str
+    display_name: str = ""
+    scraper_cls: Optional[str] = None
+    tester_cls: Optional[str] = None
+    legacy_mode: bool = False
+    capabilities: List[str] = field(default_factory=list)
+
+
+@dataclass
 class PlatformConfig:
     """平台配置"""
     name: str  # 平台标识（nvidia, aliyun, etc.）
@@ -20,6 +31,7 @@ class PlatformConfig:
     is_available: bool = True  # 是否可用
     description: str = ""  # 平台描述
     website: str = ""  # 官网
+    spec: Optional[PlatformSpec] = None
 
 
 class PlatformRegistry:
@@ -38,6 +50,9 @@ class PlatformRegistry:
     def register(self, config: PlatformConfig) -> None:
         """注册平台"""
         self._platforms[config.name] = config
+        spec = get_platform_spec(config.name)
+        if spec is not None:
+            config.spec = spec
 
     def unregister(self, name: str) -> None:
         """取消注册平台"""
@@ -113,6 +128,48 @@ class PlatformRegistry:
 
 # 全局注册表实例
 registry = PlatformRegistry()
+
+# SPEC 缓存
+_spec_cache: Dict[str, Optional[PlatformSpec]] = {}
+
+
+def get_platform_spec(name: str) -> Optional[PlatformSpec]:
+    """获取平台自描述规格"""
+    if name in _spec_cache:
+        return _spec_cache[name]
+    try:
+        import importlib
+        mod = importlib.import_module(f".platforms.{name}", package=__package__)
+    except (ImportError, ModuleNotFoundError):
+        _spec_cache[name] = None
+        return None
+    spec_dict = getattr(mod, "SPEC", None)
+    if spec_dict is None:
+        _spec_cache[name] = None
+        return None
+    spec = PlatformSpec(**spec_dict)
+    _spec_cache[name] = spec
+    return spec
+
+
+def create_component(platform: str, role: str, **kwargs):
+    """工厂函数：根据 role 动态创建平台组件（scraper / tester）"""
+    spec = get_platform_spec(platform)
+    if spec is None:
+        raise ValueError(f"平台 {platform} 无可用规格（SPEC）")
+    cls_name = None
+    if role == "scraper":
+        cls_name = spec.scraper_cls
+    elif role == "tester":
+        cls_name = spec.tester_cls
+    else:
+        raise ValueError(f"未知角色: {role}，支持: scraper, tester")
+    if cls_name is None:
+        raise ValueError(f"平台 {platform} 未提供 {role} 组件类")
+    import importlib
+    mod = importlib.import_module(f".platforms.{platform}.{role}", package=__package__)
+    cls = getattr(mod, cls_name)
+    return cls(**kwargs)
 
 
 def register_platform(

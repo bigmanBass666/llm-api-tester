@@ -126,33 +126,10 @@ class TestPlatformConfigLoader:
         assert 'vision-language' in keywords
 
     def test_get_nvidia_client_config(self):
-        """测试获取 NVIDIA 客户端配置"""
+        """测试获取 NVIDIA 客户端配置（无 client 配置时返回 None）"""
         client_config = PlatformConfigLoader.get_client_config('nvidia')
 
-        assert client_config is not None
-        assert isinstance(client_config, ClientConfig)
-        assert client_config.free_models is not None
-        assert isinstance(client_config.free_models, dict)
-        assert len(client_config.free_models) > 0
-
-    def test_get_free_models(self):
-        """测试获取免费模型映射"""
-        free_models = PlatformConfigLoader.get_free_models('nvidia')
-
-        assert free_models is not None
-        assert isinstance(free_models, dict)
-        assert len(free_models) > 0
-        # 验证常见的免费模型
-        assert 'qwen3-coder' in free_models
-        assert 'minimax-m2.7' in free_models
-        assert 'deepseek-v31' in free_models
-        assert 'glm-4.7' in free_models
-
-        # 验证映射值格式正确
-        for key, value in free_models.items():
-            assert value.startswith(('meta/', 'minimaxai/', 'deepseek-ai/',
-                                   'moonshotai/', 'google/', 'microsoft/',
-                                   'stepfun-ai/', 'z-ai/', 'qwen/', 'qwen/'))
+        assert client_config is None
 
     def test_get_zhipu_known_models(self):
         """测试获取智谱预定义模型列表"""
@@ -221,7 +198,6 @@ class TestPlatformConfigLoader:
         """测试 ClientConfig 默认值"""
         config = ClientConfig()
 
-        assert config.free_models == {}
         assert config.quick_chat_models == {}
 
     def test_platform_config_defaults(self):
@@ -245,19 +221,12 @@ class TestConfigurationConsistency:
 
     def test_nvidia_config_consistency_between_modules(self):
         """测试 NVIDIA 配置在不同模块间的一致性"""
-        from src.config_loader import get_platform_scraper_config, get_free_models
+        from src.config_loader import get_platform_scraper_config
 
-        # 从 ConfigLoader 获取
         scraper_config_from_loader = get_platform_scraper_config('nvidia')
-        free_models_from_loader = get_free_models('nvidia')
-
-        # 从 PlatformConfigLoader 直接获取
         scraper_config_direct = PlatformConfigLoader.get_scraper_config('nvidia')
-        free_models_direct = PlatformConfigLoader.get_free_models('nvidia')
 
-        # 应该完全一致
         assert scraper_config_from_loader == scraper_config_direct
-        assert free_models_from_loader == free_models_direct
 
     def test_crawler_compatibility_layer(self):
         """测试 crawler/scraper.py 兼容层的配置一致性"""

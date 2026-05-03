@@ -1,189 +1,139 @@
 """
-批量测试脚本
-支持多平台模型测试
+统一测试入口（CLI 薄壳）
+所有业务逻辑在 scripts/commands/ 中，本文件只做参数解析 + 路由
+
+用法:
+  python scripts/batch_test.py -m meta/llama-3.3-70b-instruct
+  python scripts/batch_test.py -m glm-4-flash -p zhipu --message "你好"
+  python scripts/batch_test.py -p nvidia -n 20
+  python scripts/batch_test.py --list
+  python scripts/batch_test.py -p nvidia --list-models
+  python scripts/batch_test.py -p nvidia --scrape-only -n 20
 """
 
 import sys
 import os
+import asyncio
 import argparse
 
-# 添加项目根目录到路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src import registry
-from platforms.nvidia.client import NvidiaClient
-from src.models import ChatMessage
+from src.config_loader import ConfigLoader
 
 
-def test_platform(platform: str, verbose: bool = True):
-    """测试指定平台的所有模型"""
+def _get_platform_choices():
+    ConfigLoader.load_env(".env.local")
     try:
-        client = registry.create_client(platform)
-    except Exception as e:
-        print(f"❌ 无法创建 {platform} 客户端: {e}")
-        return {}
-
-    config = registry.get(platform)
-    print(f"\n测试平台: {config.display_name}")
-    print(f"API URL: {config.default_base_url}")
-    print("-" * 60)
-
-    # 测试连接
-    print("测试连接...", end=" ")
-    if client.test_connection():
-        print("✅ 连接成功")
-    else:
-        print("❌ 连接失败")
-        return {}
-
-    # 获取模型列表
-    models = client.list_models()
-    print(f"\n发现 {len(models)} 个模型")
-
-    # 测试每个模型
-    results = {}
-    for model in models[:10]:  # 限制测试前10个
-        if verbose:
-            print(f"\n测试: {model.id}")
-
-        try:
-            # 跳过非免费模型
-            if platform == "nvidia":
-                free_models = NvidiaClient.FREE_MODELS.values()
-                if model.id not in free_models:
-                    if verbose:
-                        print(f"  ⏭️ 跳过（非预定义免费模型）")
-                    continue
-
-            response = client.chat(
-                model.id,
-                [ChatMessage(role="user", content="Hi")],
-                max_tokens=20
-            )
-
-            if response and response.strip():
-                results[model.id] = ("✅ 成功", response[:50])
-                if verbose:
-                    print(f"  ✅ 成功: {response[:50]}...")
-            else:
-                results[model.id] = ("⚠️ 空回复", "")
-                if verbose:
-                    print(f"  ⚠️ 空回复")
-
-        except Exception as e:
-            results[model.id] = (f"❌ {type(e).__name__}", str(e)[:50])
-            if verbose:
-                print(f"  ❌ 失败: {type(e).__name__}")
-
-    client.close()
-
-    # 打印汇总
-    if verbose:
-        print(f"\n{'='*60}")
-        print("测试结果汇总:")
-        print(f"{'='*60}")
-
-        success = sum(1 for v in results.values() if "成功" in v[0])
-        for model_id, (status, _) in results.items():
-            print(f"{status} - {model_id}")
-
-        print(f"\n成功: {success}/{len(results)}")
-
-    return results
+        from src.platform_config import PlatformConfigLoader
+        return PlatformConfigLoader.get_available_platforms()
+    except Exception:
+        pass
+    return [p.name for p in registry.list_available_platforms()]
 
 
-def test_nvidia_models(verbose: bool = True):
-    """专门测试 NVIDIA 免费模型（使用快捷名称）"""
-    client = NvidiaClient()
-    free_models = NvidiaClient.FREE_MODELS
+def main():
+    platform_choices = _get_platform_choices()
 
-    print(f"\n测试 NVIDIA 免费模型 ({len(free_models)} 个)")
-    print("-" * 60)
-
-    results = {}
-
-    for name, model_id in free_models.items():
-        if verbose:
-            print(f"测试: {name} ({model_id})")
-
-        try:
-            response = client.quick_chat(name, "请回复'OK'")
-            if response and response.strip():
-                results[name] = ("✅ 成功", response[:50])
-                if verbose:
-                    print(f"  ✅ 成功: {response[:50]}...")
-            else:
-                results[name] = ("⚠️ 空回复", "")
-                if verbose:
-                    print(f"  ⚠️ 空回复")
-
-        except Exception as e:
-            results[name] = (f"❌ {type(e).__name__}", str(e)[:30])
-            if verbose:
-                print(f"  ❌ 失败: {type(e).__name__}")
-
-    client.close()
-
-    if verbose:
-        print(f"\n{'='*60}")
-        success = sum(1 for v in results.values() if "成功" in v[0])
-        for name, (status, _) in results.items():
-            print(f"{status} - {name}")
-        print(f"\n成功: {success}/{len(results)}")
-
-    return results
-
-
-def list_available_platforms():
-    """列出所有可用平台"""
-    platforms = registry.list_available_platforms()
-    print("\n可用平台:")
-    print("-" * 60)
-    for p in platforms:
-        print(f"  {p.name:15} - {p.display_name}")
-        print(f"                   {p.description[:50]}...")
-
-
-if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="批量测试多平台 AI API",
+        description="AI 模型统一测试工具 — 单模型 / 批量 / 爬取 / 报告",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
-  python scripts/batch_test.py                    # 测试 NVIDIA 免费模型
-  python scripts/batch_test.py --platform nvidia  # 测试 NVIDIA 所有模型
-  python scripts/batch_test.py --list             # 列出所有可用平台
-  python scripts/batch_test.py -m minimax-m2.7   # 测试单个模型
+  python scripts/batch_test.py -m meta/llama-3.3-70b-instruct
+  python scripts/batch_test.py -m glm-4-flash -p zhipu --message "你好"
+  python scripts/batch_test.py -p nvidia -n 20
+  python scripts/batch_test.py -p zhipu -n 10
+  python scripts/batch_test.py --list
+  python scripts/batch_test.py -p nvidia --list-models
+  python scripts/batch_test.py -p nvidia --scrape-only -n 20
+  python scripts/batch_test.py -p nvidia -n 20 -c 5 --sort-by recent
         """
     )
 
-    parser.add_argument(
-        "--platform", "-p",
-        choices=["nvidia", "aliyun", "tencent", "zhipu", "ollama"],
-        help="指定平台 (默认: nvidia)"
-    )
-    parser.add_argument("--model", "-m", help="只测试单个模型 (NVIDIA 快捷名称)")
-    parser.add_argument("--message", default="请回复'OK'", help="测试消息")
-    parser.add_argument("--list", "-l", action="store_true", help="列出所有可用平台")
-    parser.add_argument("--quiet", "-q", action="store_true", help="安静模式")
+    core = parser.add_argument_group("核心参数")
+    core.add_argument("--platform", "-p", choices=platform_choices,
+                      help="目标平台")
+    core.add_argument("--model", "-m", metavar="MODEL_ID",
+                      help="测试单个模型（完整模型 ID）")
+    core.add_argument("-n", "--number", type=int, default=20,
+                      help="批量测试的模型数量 (默认: 20)")
+
+    query = parser.add_argument_group("查询模式")
+    query.add_argument("--list", "-l", action="store_true",
+                       help="列出所有可用平台及 API Key 状态")
+    query.add_argument("--list-models", action="store_true",
+                       help="列出指定平台的可用模型（需配合 -p）")
+    query.add_argument("--scrape-only", action="store_true",
+                       help="仅爬取模型列表，不执行测试（需配合 -p -n）")
+
+    opts = parser.add_argument_group("测试选项")
+    opts.add_argument("--message", default="请回复'OK'",
+                      help="单模型测试时的消息内容")
+    opts.add_argument("-c", "--concurrency", type=int, default=5,
+                      help="并发测试数量 (默认: 5)")
+    opts.add_argument("--timeout", type=int, default=60,
+                      help="单个模型超时时间(秒) (默认: 60)")
+    opts.add_argument("--sort-by", default="popular",
+                      choices=["popular", "recent"],
+                      help="排序方式 (默认: popular)")
+
+    adv = parser.add_argument_group("高级选项")
+    adv.add_argument("--resume", action="store_true",
+                     help="断点续传（跳过已测试的模型，仅 NVIDIA）")
+    adv.add_argument("--no-filter", action="store_true",
+                     help="禁用非文字模型过滤")
+    adv.add_argument("--quiet", "-q", action="store_true",
+                     help="安静模式，减少输出")
 
     args = parser.parse_args()
 
+    from commands import single_test, batch, query
+
     if args.list:
-        list_available_platforms()
+        query.list_platforms()
+
     elif args.model:
-        # 单模型测试 (NVIDIA)
-        client = NvidiaClient()
-        try:
-            response = client.quick_chat(args.model, args.message)
-            print(f"回复: {response}")
-        except Exception as e:
-            print(f"错误: {type(e).__name__}: {e}")
-        finally:
-            client.close()
+        single_test.run(
+            model_id=args.model,
+            platform=args.platform or "nvidia",
+            message=args.message,
+            verbose=not args.quiet,
+        )
+
+    elif args.list_models:
+        if not args.platform:
+            parser.error("--list-models 需要配合 -p 指定平台")
+        asyncio.run(query.list_models(args.platform))
+
+    elif args.scrape_only:
+        if not args.platform:
+            parser.error("--scrape-only 需要配合 -p 指定平台")
+        asyncio.run(query.scrape_only(
+            platform=args.platform,
+            number=args.number,
+            sort_by=args.sort_by,
+            filter_text=not args.no_filter,
+            quiet=args.quiet,
+        ))
+
     elif args.platform:
-        # 指定平台测试
-        test_platform(args.platform, verbose=not args.quiet)
+        asyncio.run(batch.run(
+            platform=args.platform,
+            number=args.number,
+            concurrency=args.concurrency,
+            timeout=args.timeout,
+            sort_by=args.sort_by,
+            resume=args.resume,
+            filter_text=not args.no_filter,
+            quiet=args.quiet,
+        ))
+
     else:
-        # 默认测试 NVIDIA 免费模型
-        test_nvidia_models(verbose=not args.quiet)
+        print("未指定参数，运行默认模式: NVIDIA 批量测试")
+        print("   使用 -h 查看完整用法\n")
+        asyncio.run(batch.run(platform="nvidia", number=20, concurrency=5))
+
+
+if __name__ == "__main__":
+    main()

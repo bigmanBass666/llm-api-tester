@@ -214,19 +214,6 @@ def get_platform_client_config(platform: str):
     return PlatformConfigLoader.get_client_config(platform)
 
 
-def get_free_models(platform: str) -> Dict[str, str]:
-    """获取免费模型映射（便捷函数）
-
-    Args:
-        platform: 平台名称
-
-    Returns:
-        免费模型映射字典
-    """
-    from .platform_config import PlatformConfigLoader
-    return PlatformConfigLoader.get_free_models(platform)
-
-
 def get_available_platforms() -> List[str]:
     """获取所有可用平台名称列表"""
     from .platform_config import PlatformConfigLoader
@@ -252,9 +239,7 @@ __all__ = [
     'load_config',
     'get_api_key',
     'require_api_key',
-    # 新增的平台配置函数
     'get_platform_scraper_config',
     'get_platform_client_config',
-    'get_free_models',
     'get_available_platforms',
 ]

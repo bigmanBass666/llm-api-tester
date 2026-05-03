@@ -5,7 +5,7 @@
 import sys
 import os
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 def test_module_imports():
@@ -18,7 +18,7 @@ def test_module_imports():
         # 核心模块
         ("src.models", ["ModelInfo", "ChatMessage", "TestResult", "TestReport"]),
         ("src.platform_config", ["PlatformConfigLoader", "ScraperConfig", "ClientConfig", "PlatformConfig"]),
-        ("src.config_loader", ["ConfigLoader", "get_api_key", "get_free_models"]),
+        ("src.config_loader", ["ConfigLoader", "get_api_key"]),
         ("src.platform_registry", ["PlatformRegistry", "register_platform"]),
 
         # 平台基类
@@ -75,22 +75,18 @@ def test_nvidia_scraper_instantiation():
     try:
         from platforms.nvidia.scraper import NvidiaScraper
 
-        # 测试实例化（不需要浏览器）
         scraper = NvidiaScraper(headless=True)
 
-        # 验证配置已正确加载
         assert hasattr(scraper, '_CONFIG'), "缺少 _CONFIG 属性"
         assert hasattr(scraper, 'SELECTORS'), "缺少 SELECTORS 属性"
         assert hasattr(scraper, 'TEXT_MODEL_CATEGORIES'), "缺少 TEXT_MODEL_CATEGORIES 属性"
         assert hasattr(scraper, 'NON_TEXT_KEYWORDS'), "缺少 NON_TEXT_KEYWORDS 属性"
 
-        # 验证配置值不为空
         assert len(scraper._CONFIG) > 0, "_CONFIG 为空"
         assert len(scraper.SELECTORS) > 0, "SELECTORS 为空"
         assert len(scraper.TEXT_MODEL_CATEGORIES) > 0, "TEXT_MODEL_CATEGORIES 为空"
         assert len(scraper.NON_TEXT_KEYWORDS) > 0, "NON_TEXT_KEYWORDS 为空"
 
-        # 打印配置摘要
         print(f"✅ NvidiaScraper 实例化成功")
         print(f"   - 配置项数: {len(scraper._CONFIG)}")
         print(f"   - 选择器数: {len(scraper.SELECTORS)}")
@@ -113,22 +109,12 @@ def test_nvidia_client_instantiation():
     try:
         from platforms.nvidia.client import NvidiaClient
 
-        # 测试实例化
         client = NvidiaClient(api_key="test-api-key")
 
-        # 验证 FREE_MODELS 已从配置加载
-        assert hasattr(client, 'FREE_MODELS'), "缺少 FREE_MODELS 属性"
-        assert isinstance(client.FREE_MODELS, dict), "FREE_MODELS 不是字典"
-        assert len(client.FREE_MODELS) > 0, "FREE_MODELS 为空"
-
-        # 验证基础 URL 已设置
         assert client.base_url is not None, "base_url 未设置"
 
-        # 打印配置摘要
         print(f"✅ NvidiaClient 实例化成功")
         print(f"   - Base URL: {client.base_url}")
-        print(f"   - 免费模型数: {len(client.FREE_MODELS)}")
-        print(f"   - 模型示例: {list(client.FREE_MODELS.keys())[:5]}...")
 
         return True
 
@@ -148,10 +134,8 @@ def test_zhipu_scraper_instantiation():
     try:
         from platforms.zhipu.scraper import ZhipuScraper
 
-        # 测试实例化
         scraper = ZhipuScraper()
 
-        # 验证 KNOWN_MODELS 存在
         assert hasattr(scraper, 'KNOWN_MODELS'), "缺少 KNOWN_MODELS 属性"
 
         print(f"✅ ZhipuScraper 实例化成功")
@@ -173,7 +157,6 @@ def test_zhipu_client_instantiation():
     try:
         from platforms.zhipu.client import ZhipuClient
 
-        # 测试实例化
         client = ZhipuClient(api_key="test-api-key")
 
         print(f"✅ ZhipuClient 实例化成功")
@@ -200,11 +183,9 @@ def test_crawler_compatibility_layer():
             NON_TEXT_KEYWORDS
         )
 
-        # 测试 fix_model_id 函数
         result = fix_model_id("deepseek-v3_2")
         assert result == "deepseek-v3.2", f"fix_model_id 失败: {result}"
 
-        # 验证配置常量已从 PlatformConfigLoader 加载
         assert TEXT_MODEL_CATEGORIES is not None, "TEXT_MODEL_CATEGORIES 为 None"
         assert NON_TEXT_KEYWORDS is not None, "NON_TEXT_KEYWORDS 为 None"
         assert len(TEXT_MODEL_CATEGORIES) > 0, "TEXT_MODEL_CATEGORIES 为空"
@@ -234,39 +215,31 @@ def test_platform_config_loader():
     try:
         from src.platform_config import PlatformConfigLoader
 
-        # 重置配置
         PlatformConfigLoader.reload()
 
-        # 测试获取所有平台
         all_platforms = PlatformConfigLoader.get_all_platforms()
         assert len(all_platforms) > 0, "没有找到任何平台"
 
-        # 测试获取可用平台
         available_platforms = PlatformConfigLoader.get_available_platforms()
         assert len(available_platforms) > 0, "没有可用平台"
         assert 'nvidia' in available_platforms, "NVIDIA 不在可用平台列表中"
         assert 'zhipu' in available_platforms, "智谱不在可用平台列表中"
 
-        # 测试获取 NVIDIA 配置
         nvidia_config = PlatformConfigLoader.get_config('nvidia')
         assert nvidia_config is not None, "NVIDIA 配置为空"
         assert nvidia_config.name == 'nvidia'
 
-        # 测试获取 NVIDIA 爬虫配置
         nvidia_scraper_config = PlatformConfigLoader.get_scraper_config('nvidia')
         assert nvidia_scraper_config is not None, "NVIDIA 爬虫配置为空"
         assert nvidia_scraper_config.base_url == 'https://build.nvidia.com'
 
-        # 测试获取 NVIDIA 客户端配置
         nvidia_client_config = PlatformConfigLoader.get_client_config('nvidia')
-        assert nvidia_client_config is not None, "NVIDIA 客户端配置为空"
-        assert len(nvidia_client_config.free_models) > 0, "免费模型列表为空"
 
         print(f"✅ PlatformConfigLoader 功能正常")
         print(f"   - 总平台数: {len(all_platforms)}")
         print(f"   - 可用平台: {available_platforms}")
         print(f"   - NVIDIA 爬虫配置: ✓")
-        print(f"   - NVIDIA 客户端配置: ✓ (包含 {len(nvidia_client_config.free_models)} 个免费模型)")
+        print(f"   - NVIDIA 客户端配置: ✓")
 
         return True
 
@@ -285,7 +258,6 @@ def main():
 
     results = []
 
-    # 运行所有测试
     results.append(("模块导入验证", test_module_imports()))
     results.append(("NVIDIA 爬虫实例化", test_nvidia_scraper_instantiation()))
     results.append(("NVIDIA 客户端实例化", test_nvidia_client_instantiation()))
@@ -294,7 +266,6 @@ def main():
     results.append(("兼容层验证", test_crawler_compatibility_layer()))
     results.append(("PlatformConfigLoader 功能", test_platform_config_loader()))
 
-    # 生成总结报告
     print("\n" + "=" * 70)
     print("📊 测试总结报告")
     print("=" * 70)

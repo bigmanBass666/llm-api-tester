@@ -1,0 +1,143 @@
+import os
+import sys
+import time
+import asyncio
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+from src import registry
+from src.platform_registry import get_platform_spec, create_component
+from src.models import ChatMessage
+
+
+def get_api_key(platform: str) -> str:
+    config = registry.get(platform)
+    if config and config.api_key_env:
+        key = os.environ.get(config.api_key_env)
+        if key:
+            return key
+    raise ValueError(
+        f"缺少 {platform} 的 API Key，请设置环境变量: "
+        f"{config.api_key_env if config else '未知'}"
+    )
+
+
+def _ensure_platform_registered(platform: str):
+    if registry.get(platform) is not None:
+        return
+    try:
+        import importlib
+        importlib.import_module(f"platforms.{platform}.client")
+    except (ImportError, ModuleNotFoundError):
+        pass
+
+
+async def run(platform, number=20, concurrency=5, timeout=60, sort_by="popular",
+              scrape_only=False, resume=False, filter_text=True, quiet=False):
+    _ensure_platform_registered(platform)
+    api_key = get_api_key(platform)
+    spec = get_platform_spec(platform)
+    config = registry.get(platform)
+    display_name = (spec.display_name if spec and spec.display_name
+                    else (config.display_name if config else platform))
+
+    if not quiet:
+        print(f"\n{'='*60}")
+        print(f"  {display_name} 批量测试")
+        print(f"{'='*60}")
+        print(f"  模型数量 : {number}")
+        print(f"  并发数   : {concurrency}")
+        print(f"  超时时间 : {timeout}s")
+        print(f"  排序方式 : {sort_by}")
+        if scrape_only:
+            print(f"  模式     : 仅爬取")
+        print()
+
+    if spec and spec.legacy_mode:
+        from crawler.scraper import scrape_top_models
+        models = await scrape_top_models(number, sort_by=sort_by,
+                                         filter_text_models=filter_text)
+    elif spec and spec.scraper_cls is not None:
+        scraper = create_component(platform, "scraper")
+        models = await scraper.scrape(limit=number)
+    else:
+        client = registry.create_client(platform, api_key=api_key)
+        all_models = client.list_models()
+        client.close()
+        models = all_models[:number]
+
+    if not models:
+        if not quiet:
+            print("无法获取模型列表")
+        return
+
+    if not quiet:
+        print(f"获取到 {len(models)} 个模型")
+
+    if scrape_only:
+        if not quiet:
+            print("\n模型列表:")
+            for m in models:
+                tags = f" [{' '.join(m.tags)}]" if m.tags else ""
+                print(f"  #{m.rank} {m.id}{tags}")
+        return
+
+    if not quiet:
+        print(f"\n开始测试 ({concurrency} 并发)...")
+        print("-" * 60)
+
+    if spec and spec.legacy_mode:
+        from crawler.tester import test_top_models
+        await test_top_models(
+            limit=number,
+            concurrency=concurrency,
+            use_logger=resume,
+            resume=resume,
+            sort_by=sort_by,
+            filter_text_models=filter_text,
+            reasoning_timeout=max(timeout * 3, 180),
+        )
+    else:
+        tester = create_component(platform, "tester", api_key=api_key)
+        results = await tester.batch_test(models, concurrency=concurrency,
+                                          timeout=timeout)
+        tester = None
+
+        if results and not quiet:
+            _print_summary(results, display_name)
+
+        if results:
+            try:
+                from report.generator import ReportGenerator
+                generator = ReportGenerator(platform=platform)
+                files = generator.generate(results)
+                if not quiet:
+                    print(f"\n报告已生成:")
+                    print(f"   Markdown: {files['markdown']}")
+                    print(f"   JSON:     {files['json']}")
+            except ImportError:
+                pass
+
+
+def _print_summary(results, platform_name):
+    success = sum(1 for r in results if r.status == "success")
+    failed = sum(1 for r in results if r.status == "failed")
+    timeout_count = sum(1 for r in results if r.status == "timeout")
+    total = len(results)
+
+    print(f"\n{'='*60}")
+    print(f"  {platform_name} 测试摘要")
+    print(f"{'='*60}")
+    print(f"   总计  : {total}")
+    print(f"   成功  : {success}")
+    print(f"   失败  : {failed}")
+    print(f"   超时  : {timeout_count}")
+    if total > 0:
+        print(f"   成功率: {success/total*100:.1f}%")
+
+    fastest = sorted([r for r in results if r.status == "success"],
+                     key=lambda x: x.response_time)
+    if fastest:
+        print(f"\n最快模型:")
+        for r in fastest[:5]:
+            print(f"   {r.model_id:<50} {r.response_time:.2f}s")

@@ -87,19 +87,6 @@ platforms:
         - tts
         - vision-language
 
-    # 客户端配置
-    client:
-      free_models:
-        qwen3-coder: "qwen/qwen3-coder-480b-a35b-instruct"
-        minimax-m2.7: "minimaxai/minimax-m2.7"
-        deepseek-v31: "deepseek-ai/deepseek-v3.1-terminus"
-        llama4-maverick: "meta/llama-4-maverick-17b-128e-instruct"
-        kimi-k2: "moonshotai/kimi-k2-instruct-0905"
-        gemma-7b: "google/gemma-7b"
-        phi3-mini: "microsoft/phi-3-mini-128k-instruct"
-        step-3.5-flash: "stepfun-ai/step-3.5-flash"
-        glm-4.7: "z-ai/glm4.7"
-
     # 模型列表（保留原有结构）
     models:
       free:

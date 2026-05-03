@@ -16,12 +16,11 @@ def test_nvidia_client_importable():
     assert callable(NvidiaClient)
 
 
-def test_nvidia_client_has_free_models(mock_api_key):
+def test_nvidia_client_has_list_models(mock_api_key):
     from platforms.nvidia.client import NvidiaClient
     client = NvidiaClient(api_key=mock_api_key)
-    assert hasattr(client, 'FREE_MODELS')
-    assert isinstance(client.FREE_MODELS, dict)
-    assert len(client.FREE_MODELS) > 0
+    assert hasattr(client, 'list_models')
+    assert callable(client.list_models)
 
 
 def test_platform_registry_has_nvidia():
@@ -63,11 +62,10 @@ def test_zhipu_client_importable():
     assert callable(ZhipuClient)
 
 
-def test_zhipu_client_has_free_models():
+def test_zhipu_client_has_list_models():
     from platforms.zhipu.client import ZhipuClient
-    assert hasattr(ZhipuClient, 'FREE_MODELS')
-    assert isinstance(ZhipuClient.FREE_MODELS, dict)
-    assert len(ZhipuClient.FREE_MODELS) > 0
+    assert hasattr(ZhipuClient, 'list_models')
+    assert callable(ZhipuClient.list_models)
 
 
 def test_base_platform_client_exists():
@@ -94,12 +92,12 @@ def test_src_init_exports():
         nvidia_chat,
         zhipu_chat
     )
-    
+
     # 验证核心类存在
     assert ModelInfo is not None
     assert ChatMessage is not None
     assert ConfigLoader is not None
-    
+
     # 验证便捷函数存在且可调用
     assert callable(nvidia_chat)
     assert callable(zhipu_chat)

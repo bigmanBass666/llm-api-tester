@@ -18,16 +18,6 @@ class ZhipuClient(BasePlatformClient):
 
     platform_name = "zhipu"
 
-    FREE_MODELS = {
-        "glm-4-flash": "glm-4-flash-250414",
-        "glm-4v-flash": "glm-4v-flash",
-        "glm-4.7-flash": "glm-4.7-flash",
-        "glm-4.1v-thinking-flash": "glm-4.1v-thinking-flash",
-        "cogview-3-flash": "cogview-3-flash",
-        "cogvideox-flash": "cogvideox-flash",
-        "glm-4.6v-flash": "glm-4.6v-flash",
-    }
-
     def __init__(self, api_key: str, base_url: str = "https://open.bigmodel.cn/api/paas/v4"):
         super().__init__(api_key=api_key, base_url=base_url)
         from src.ssl_config import setup_ssl_certificates
@@ -73,23 +63,24 @@ class ZhipuClient(BasePlatformClient):
         raise NotImplementedError("ZhipuClient 暂不支持流式聊天")
 
     def list_models(self) -> List[ModelInfo]:
-        """获取可用模型列表 - 返回统一的 ModelInfo 对象"""
+        """获取可用模型列表 - 动态从 API 获取"""
+        models = self.client.models.list()
         return [
             ModelInfo(
-                id=v,
-                name=k,
+                id=m.id,
+                name=m.id,
                 vendor="zhipu",
                 is_free_endpoint=True,
                 is_available=True,
             )
-            for k, v in self.FREE_MODELS.items()
+            for m in models.data
         ]
 
     def test_connection(self) -> bool:
         """测试 API 连接是否正常"""
         try:
-            models = self.list_models()
-            return len(models) > 0
+            models = self.client.models.list()
+            return len(models.data) > 0
         except Exception:
             return False
 

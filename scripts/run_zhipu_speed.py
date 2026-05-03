@@ -2,7 +2,7 @@
 智谱AI免费模型响应速度测试 - 基于通用测试框架
 
 使用方法:
-    python crawler/zhipu_speed_test.py
+    python scripts/run_zhipu_speed.py
 或设置环境变量 ZHIPU_API_KEY 后运行
 """
 
@@ -12,21 +12,18 @@ import time
 import yaml
 from typing import List, Dict
 
-# 添加项目根目录到Python路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# 确保平台注册表加载
 from src import platform_registry  # noqa: F401
 from platforms.zhipu.client import ZhipuClient
 from src.models import ChatMessage
 
-from speed_tester import BaseSpeedTestSuite, SpeedTestResult
+from crawler.speed_tester import BaseSpeedTestSuite, SpeedTestResult
 
 
 class ZhipuSpeedTestSuite(BaseSpeedTestSuite):
     """智谱AI速度测试套件"""
 
-    # 模型元数据缓存（从配置文件加载）
     _model_metadata: Dict[str, dict] = {}
 
     def __init__(self, output_dir: str = "docs", config_path: str = "configs/platforms.yaml"):
@@ -96,7 +93,6 @@ class ZhipuSpeedTestSuite(BaseSpeedTestSuite):
         messages = [ChatMessage(role="user", content=test_message)]
 
         try:
-            # 尝试流式调用
             start = time.time()
             ttft_recorded = False
             full_response = ""
@@ -110,7 +106,6 @@ class ZhipuSpeedTestSuite(BaseSpeedTestSuite):
                     result.ttft = time.time() - start
                     result.first_chunk = str(chunk) if isinstance(chunk, str) else ""
                     ttft_recorded = True
-                # 收集完整响应（可选）
                 full_response += str(chunk) if isinstance(chunk, str) else ""
 
             result.total_time = time.time() - start
@@ -120,13 +115,11 @@ class ZhipuSpeedTestSuite(BaseSpeedTestSuite):
             err_msg = str(e)
             status = getattr(e, 'status_code', None)
 
-            # 处理不支持流式
             if (status == 400 or "1212" in err_msg or
                 "SSE" in err_msg or "不支持" in err_msg or
                 "not support" in err_msg.lower()):
 
                 try:
-                    # 降级为非流式
                     start = time.time()
                     response = client.chat(
                         model_id, messages,
@@ -135,13 +128,12 @@ class ZhipuSpeedTestSuite(BaseSpeedTestSuite):
                     )
                     result.total_time = time.time() - start
                     result.full_response = str(response) if isinstance(response, str) else ""
-                    result.ttft = None  # 无法获取TTFT
+                    result.ttft = None
                 except Exception as e2:
                     result.error = f"降级失败: {str(e2)} (原始: {err_msg})"
                     result.error_type = type(e2).__name__
                     result.total_time = time.time() - start
 
-            # 处理限流
             elif status == 429 or "429" in err_msg or "访问量过大" in err_msg:
                 time.sleep(2)
                 try:
@@ -181,19 +173,10 @@ def main():
                        help="最大生成token数")
     parser.add_argument("--output-dir", default="docs",
                        help="输出目录")
-    parser.add_argument("--platform", action='store_true',
-                       help="仅测试标记为平台的模型")
 
     args = parser.parse_args()
 
     suite = ZhipuSpeedTestSuite(output_dir=args.output_dir)
-
-    # 获取模型列表以过滤平台模型
-    if args.platform:
-        client = suite._create_client()
-        all_models = client.list_models()
-        # 这里可以添加过滤逻辑
-        print(f"注意: --platform 标志未实现，将测试所有模型")
 
     print(f"开始测试智谱AI免费模型...")
     results = suite.test_all(
@@ -201,10 +184,8 @@ def main():
         max_tokens=args.max_tokens
     )
 
-    # 导出报告
     md_file, json_file = suite.export_all(test_name="zhipu_speed_test")
 
-    # 打印摘要
     print("\n" + "="*60)
     print("📈 测试完成!")
     summary = suite.generate_summary()

@@ -48,8 +48,11 @@ logs/
 
 # API Keys & Secrets (never commit these!)
 .env
-.env.*           # 所有 .env 变体（.env.local, .env.production 等）
-!.env.example    # 但模板文件可以提交
+.env.local
+.env.production
+.env.development
+.env.staging
+!.env.example
 secrets.json
 *.key
 *.pem
