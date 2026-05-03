@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from src.models import ModelInfo, ChatMessage
 from platforms.base.base_client import BasePlatformClient
 from src.platform_registry import register_platform
+from src.platform_config import PlatformConfigLoader
 
 
 class NvidiaClient(BasePlatformClient):
@@ -22,29 +23,38 @@ class NvidiaClient(BasePlatformClient):
     platform_name = "nvidia"
     platform_display_name = "NVIDIA NIM"
 
-    FREE_MODELS = {
-        "qwen3-coder": "qwen/qwen3-coder-480b-a35b-instruct",
-        "minimax-m2.7": "minimaxai/minimax-m2.7",
-        "deepseek-v31": "deepseek-ai/deepseek-v3.1-terminus",
-        "llama4-maverick": "meta/llama-4-maverick-17b-128e-instruct",
-        "kimi-k2": "moonshotai/kimi-k2-instruct-0905",
-        "gemma-7b": "google/gemma-7b",
-        "phi3-mini": "microsoft/phi-3-mini-128k-instruct",
-        "step-3.5-flash": "stepfun-ai/step-3.5-flash",
-        "glm-4.7": "z-ai/glm4.7",
-    }
-
     def __init__(self, api_key: str = None, base_url: Optional[str] = None, **kwargs):
         # 不再需要手动调用 SSL 设置，基类会自动处理
         self._client: Optional[OpenAI] = None
-        
+
+        # 从配置加载器加载配置
+        self._load_config()
+
         super().__init__(
             api_key=api_key,
-            base_url=base_url or "https://integrate.api.nvidia.com/v1",
+            base_url=base_url or self._platform_base_url,
             **kwargs
         )
-        
+
         self.config = kwargs
+
+    def _load_config(self):
+        """从配置加载器加载配置"""
+        config = PlatformConfigLoader.get_config(self.platform_name)
+        if not config:
+            raise ValueError(f"未找到 {self.platform_name} 平台的配置，请检查 configs/platforms.yaml")
+
+        # 设置平台基础 URL
+        self._platform_base_url = config.base_url or "https://integrate.api.nvidia.com/v1"
+
+        # 加载免费模型映射
+        client_config = PlatformConfigLoader.get_client_config(self.platform_name)
+        if client_config:
+            self.FREE_MODELS = client_config.free_models
+        else:
+            # 如果没有配置，使用空字典（向后兼容）
+            print(f"⚠️ 未找到 {self.platform_name} 平台的客户端配置，FREE_MODELS 将为空")
+            self.FREE_MODELS = {}
 
     @property
     def client(self) -> OpenAI:

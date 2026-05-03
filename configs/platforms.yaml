@@ -17,6 +17,90 @@ platforms:
     is_available: true
     description: "NVIDIA NIM 提供的多种开源大模型 API，包含 Qwen、DeepSeek、Llama、GLM 等"
     website: "https://build.nvidia.com"
+
+    # 爬虫配置
+    scraper:
+      base_url: "https://build.nvidia.com"
+      page_timeout_ms: 180000
+      navigation_timeout_ms: 120000
+      page_load_wait_ms: 3000
+      pagination_wait_ms: 5000
+      network_idle_timeout_ms: 10000
+      max_page_turns: 10
+      max_cards_per_page: 50
+      api_timeout_s: 45.0
+      api_connect_timeout_s: 15.0
+      selectors:
+        card_root: "[data-testid='nv-card-root']"
+        vendor_link: "a[data-nvtrack-nav-object='artifact-card-publisher-link']"
+        model_link: "a[data-nvtrack-nav-object='artifact-card']"
+        badge: "[data-testid='nv-badge']"
+        next_page: 'button[aria-label="Go to next page"]'
+      text_model_categories:
+        - text-generation
+        - chat
+        - coding
+        - reasoning
+        - language generation
+        - instruction following
+        - long-context
+        - agentic
+        - tool calling
+        - moe
+      non_text_keywords:
+        - whisper
+        - flux
+        - parakeet
+        - stable-diffusion
+        - nemoretriever
+        - esm2
+        - nvclip
+        - nemotron-parse
+        - riva-translate
+        - magpie-tts
+        - genmol
+        - proteinmpnn
+        - rfdiffusion
+        - shieldgemma
+        - nemoguard
+        - cosmos-
+        - nv-grounding
+        - starcoder2
+        - openfold
+        - ipd/
+        - llama-nemotron-embed
+        - nv-embed
+        - nemotron-asr
+        - nemotron-ocr
+        - nemotron-table
+        - nemotron-page
+        - nemotron-graphic
+        - parakeet-ctc
+        - synthetic-video
+        - active-speaker
+        - relighting
+        - lipsync
+        - embedding
+        - extraction
+        - speech
+        - asr
+        - tts
+        - vision-language
+
+    # 客户端配置
+    client:
+      free_models:
+        qwen3-coder: "qwen/qwen3-coder-480b-a35b-instruct"
+        minimax-m2.7: "minimaxai/minimax-m2.7"
+        deepseek-v31: "deepseek-ai/deepseek-v3.1-terminus"
+        llama4-maverick: "meta/llama-4-maverick-17b-128e-instruct"
+        kimi-k2: "moonshotai/kimi-k2-instruct-0905"
+        gemma-7b: "google/gemma-7b"
+        phi3-mini: "microsoft/phi-3-mini-128k-instruct"
+        step-3.5-flash: "stepfun-ai/step-3.5-flash"
+        glm-4.7: "z-ai/glm4.7"
+
+    # 模型列表（保留原有结构）
     models:
       free:
         - id: "qwen/qwen3-coder-480b-a35b-instruct"
@@ -74,6 +158,40 @@ platforms:
     is_available: true
     description: "智谱 AI 的 GLM 系列模型，包含免费API"
     website: "https://www.bigmodel.cn/"
+
+    # 爬虫配置（使用预定义模型列表）
+    scraper:
+      known_models:
+        - name: "glm-4-flash"
+          model_id: "glm-4-flash-250414"
+          vendor: "智谱"
+          is_free: true
+        - name: "glm-4v-flash"
+          model_id: "glm-4v-flash"
+          vendor: "智谱"
+          is_free: true
+        - name: "glm-4.7-flash"
+          model_id: "glm-4.7-flash"
+          vendor: "智谱"
+          is_free: true
+        - name: "glm-4.1v-thinking-flash"
+          model_id: "glm-4.1v-thinking-flash"
+          vendor: "智谱"
+          is_free: true
+        - name: "cogview-3-flash"
+          model_id: "cogview-3-flash"
+          vendor: "智谱"
+          is_free: true
+        - name: "cogvideox-flash"
+          model_id: "cogvideox-flash"
+          vendor: "智谱"
+          is_free: true
+        - name: "glm-4.6v-flash"
+          model_id: "glm-4.6v-flash"
+          vendor: "智谱"
+          is_free: true
+
+    # 模型列表（保留原有结构）
     models:
       free:
         - id: "glm-4-flash-250414"

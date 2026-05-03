@@ -15,36 +15,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from src.models import ModelInfo
 from platforms.base.base_scraper import BaseScraper
-
-
-# 统一选择器常量
-SELECTORS = {
-    'card_root': "[data-testid='nv-card-root']",
-    'vendor_link': "a[data-nvtrack-nav-object='artifact-card-publisher-link']",
-    'model_link': "a[data-nvtrack-nav-object='artifact-card']",
-    'badge': "[data-testid='nv-badge']",
-    'next_page': 'button[aria-label="Go to next page"]',
-}
-
-# 文字模型过滤配置
-TEXT_MODEL_CATEGORIES = {
-    'text-generation', 'chat', 'coding', 'reasoning',
-    'language generation', 'instruction following',
-    'long-context', 'agentic', 'tool calling', 'moe'
-}
-
-NON_TEXT_KEYWORDS = [
-    'whisper', 'flux', 'parakeet', 'stable-diffusion',
-    'nemoretriever', 'esm2', 'nvclip', 'nemotron-parse',
-    'riva-translate', 'magpie-tts', 'genmol', 'proteinmpnn',
-    'rfdiffusion', 'shieldgemma', 'nemoguard', 'cosmos-',
-    'nv-grounding', 'starcoder2', 'openfold', 'ipd/',
-    'llama-nemotron-embed', 'nv-embed', 'nemotron-asr',
-    'nemotron-ocr', 'nemotron-table', 'nemotron-page',
-    'nemotron-graphic', 'parakeet-ctc', 'synthetic-video',
-    'active-speaker', 'relighting', 'lipsync', 'embedding',
-    'extraction', 'speech', 'asr', 'tts', 'vision-language'
-]
+from src.platform_config import PlatformConfigLoader
 
 
 class NvidiaScraper(BaseScraper):
@@ -52,26 +23,38 @@ class NvidiaScraper(BaseScraper):
 
     platform_name = "nvidia"
 
-    # 配置常量
-    _CONFIG = {
-        'base_url': 'https://build.nvidia.com',
-        'page_timeout_ms': 180000,
-        'navigation_timeout_ms': 120000,
-        'page_load_wait_ms': 3000,
-        'pagination_wait_ms': 5000,
-        'network_idle_timeout_ms': 10000,
-        'max_page_turns': 10,
-        'max_cards_per_page': 50,
-        'api_timeout_s': 45.0,
-        'api_connect_timeout_s': 15.0,
-    }
-
     def __init__(self, headless: bool = True, filter_text_models: bool = False):
         self.headless = headless
         self.filter_text_models = filter_text_models
         self.browser = None
         self.page = None
         self._cookie_closed = False
+
+        # 从配置加载器加载配置
+        self._load_config()
+
+    def _load_config(self):
+        """从配置加载器加载配置"""
+        config = PlatformConfigLoader.get_scraper_config(self.platform_name)
+        if not config:
+            raise ValueError(f"未找到 {self.platform_name} 平台的爬虫配置，请检查 configs/platforms.yaml")
+
+        self._CONFIG = {
+            'base_url': config.base_url,
+            'page_timeout_ms': config.page_timeout_ms,
+            'navigation_timeout_ms': config.navigation_timeout_ms,
+            'page_load_wait_ms': config.page_load_wait_ms,
+            'pagination_wait_ms': config.pagination_wait_ms,
+            'network_idle_timeout_ms': config.network_idle_timeout_ms,
+            'max_page_turns': config.max_page_turns,
+            'max_cards_per_page': config.max_cards_per_page,
+            'api_timeout_s': config.api_timeout_s,
+            'api_connect_timeout_s': config.api_connect_timeout_s,
+        }
+
+        self.SELECTORS = config.selectors
+        self.TEXT_MODEL_CATEGORIES = config.text_model_categories
+        self.NON_TEXT_KEYWORDS = config.non_text_keywords
 
     async def scrape(self, limit: int = 50, sort_by: str = "popular", sort_order: str = "DESC") -> List[ModelInfo]:
         """
@@ -191,7 +174,7 @@ class NvidiaScraper(BaseScraper):
 
         try:
             # 使用统一选择器定位模型卡片
-            model_cards = await self.page.query_selector_all(SELECTORS['card_root'])
+            model_cards = await self.page.query_selector_all(self.SELECTORS.get('card_root', "[data-testid='nv-card-root']"))
             print(f"   找到 {len(model_cards)} 个模型卡片", flush=True)
 
             for i, card in enumerate(model_cards[:self._CONFIG['max_cards_per_page']], 1):
@@ -207,7 +190,7 @@ class NvidiaScraper(BaseScraper):
 
                     # 提取完整模型 ID（优先从链接获取）
                     try:
-                        card_link = await card.query_selector(SELECTORS['model_link'])
+                        card_link = await card.query_selector(self.SELECTORS.get('model_link', "a[data-nvtrack-nav-object='artifact-card']"))
                         if card_link:
                             href = await card_link.get_attribute("href")
                             if href and href.startswith("/"):
@@ -229,7 +212,7 @@ class NvidiaScraper(BaseScraper):
 
                     # 提取发布商信息
                     try:
-                        vendor_link = await card.query_selector(SELECTORS['vendor_link'])
+                        vendor_link = await card.query_selector(self.SELECTORS.get('vendor_link', "a[data-nvtrack-nav-object='artifact-card-publisher-link']"))
                         if vendor_link:
                             vendor_text = await vendor_link.text_content()
                             if vendor_text:
@@ -242,7 +225,7 @@ class NvidiaScraper(BaseScraper):
 
                     # 提取标签
                     try:
-                        badge_elements = await card.query_selector_all(SELECTORS['badge'])
+                        badge_elements = await card.query_selector_all(self.SELECTORS.get('badge', "[data-testid='nv-badge']"))
                         for badge in badge_elements:
                             try:
                                 tag_text = await badge.text_content()
@@ -384,7 +367,7 @@ class NvidiaScraper(BaseScraper):
         """
         # 策略1: 基于 Category Tag 判断
         if category:
-            if category in TEXT_MODEL_CATEGORIES:
+            if category in self.TEXT_MODEL_CATEGORIES:
                 return True
             # 明确的非文字类型标签
             if any(kw in category for kw in ['embedding', 'extraction', 'speech', 'asr', 'tts', 'vision-language']):
@@ -392,7 +375,7 @@ class NvidiaScraper(BaseScraper):
 
         # 策略2: 基于模型 ID 关键词兜底判断
         model_id_lower = model_id.lower()
-        for keyword in NON_TEXT_KEYWORDS:
+        for keyword in self.NON_TEXT_KEYWORDS:
             if keyword in model_id_lower:
                 return False
 
@@ -411,7 +394,7 @@ class NvidiaScraper(BaseScraper):
             await self._close_cookie_consent()
 
             # 定位下一页按钮
-            next_button = await self.page.query_selector(SELECTORS['next_page'])
+            next_button = await self.page.query_selector(self.SELECTORS.get('next_page', 'button[aria-label="Go to next page"]'))
 
             if not next_button:
                 return False
@@ -530,16 +513,20 @@ class NvidiaScraper(BaseScraper):
 
         # 模糊匹配
         for key, full_id in api_map.items():
-            if short_name.lower() in key.lower() or key.lower() in short_name.lower():
+            if short_name.lower() == key.lower():
                 return full_id
 
-        # 都没匹配到，返回原名称
+        # 尝试下划线转点号（NVIDIA 特殊格式）
+        fixed_name = short_name.replace('_', '.')
+        if fixed_name in api_map:
+            return api_map[fixed_name]
+
+        # 返回原值（可能已经是完整 ID）
         return short_name
 
 
 async def scrape_top_models(limit: int = 50, sort_by: str = "popular", filter_text_models: bool = False) -> List[ModelInfo]:
-    """
-    爬取前N个热门模型（便捷函数）
+    """爬取前N个热门模型（便捷函数）
 
     Args:
         limit: 爬取的模型数量
@@ -551,16 +538,6 @@ async def scrape_top_models(limit: int = 50, sort_by: str = "popular", filter_te
     """
     scraper = NvidiaScraper(headless=True, filter_text_models=filter_text_models)
     try:
-        models = await scraper.scrape(limit=limit, sort_by=sort_by)
-        return models
+        return await scraper.scrape(limit=limit, sort_by=sort_by)
     finally:
         await scraper.close()
-
-
-if __name__ == "__main__":
-    async def test():
-        models = await scrape_top_models(10)
-        for m in models:
-            print(f"#{m.rank:2d} {m.id} (vendor={m.vendor}, text={m.is_text_model})")
-
-    asyncio.run(test())

@@ -16,11 +16,12 @@ def test_nvidia_client_importable():
     assert callable(NvidiaClient)
 
 
-def test_nvidia_client_has_free_models():
+def test_nvidia_client_has_free_models(mock_api_key):
     from platforms.nvidia.client import NvidiaClient
-    assert hasattr(NvidiaClient, 'FREE_MODELS')
-    assert isinstance(NvidiaClient.FREE_MODELS, dict)
-    assert len(NvidiaClient.FREE_MODELS) > 0
+    client = NvidiaClient(api_key=mock_api_key)
+    assert hasattr(client, 'FREE_MODELS')
+    assert isinstance(client.FREE_MODELS, dict)
+    assert len(client.FREE_MODELS) > 0
 
 
 def test_platform_registry_has_nvidia():

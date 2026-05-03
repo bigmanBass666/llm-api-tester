@@ -86,7 +86,7 @@ class NvidiaScraper(_NvidiaScraper):
             await self._init_browser()
 
 
-async def scrape_top_models(limit: int = 50, sort_by: str = "popular", filter_text_models: bool = False) -> List[ModelInfo]:
+async def scrape_top_models(limit: int = 50, sort_by: str = "platforms", filter_text_models: bool = False) -> List[ModelInfo]:
     """爬取前N个热门模型（向后兼容的便捷函数）
 
     此函数直接委托给 platforms.nvidia.scraper.scrape_top_models
@@ -106,24 +106,11 @@ async def scrape_top_models(limit: int = 50, sort_by: str = "popular", filter_te
     return await _scrape_top_models(limit=limit, sort_by=sort_by, filter_text_models=filter_text_models)
 
 
-# 保留旧版配置常量（用于兼容可能直接导入这些常量的代码）
-TEXT_MODEL_CATEGORIES = {
-    'text-generation', 'chat', 'coding', 'reasoning',
-    'language generation', 'instruction following',
-    'long-context', 'agentic', 'tool calling', 'moe'
-}
+# 向后兼容：从配置加载器获取配置常量
+from src.platform_config import PlatformConfigLoader
 
-NON_TEXT_KEYWORDS = [
-    'whisper', 'flux', 'parakeet', 'stable-diffusion',
-    'nemoretriever', 'esm2', 'nvclip', 'nemotron-parse',
-    'riva-translate', 'magpie-tts', 'genmol', 'proteinmpnn',
-    'rfdiffusion', 'shieldgemma', 'nemoguard', 'cosmos-',
-    'nv-grounding', 'starcoder2', 'openfold', 'ipd/',
-    'llama-nemotron-embed', 'nv-embed', 'nemotron-asr',
-    'nemotron-ocr', 'nemotron-table', 'nemotron-page',
-    'nemotron-graphic', 'parakeet-ctc', 'synthetic-video',
-    'active-speaker', 'relighting', 'lipsync'
-]
+TEXT_MODEL_CATEGORIES = PlatformConfigLoader.get_text_model_categories("nvidia")
+NON_TEXT_KEYWORDS = PlatformConfigLoader.get_non_text_keywords("nvidia")
 
 
 if __name__ == "__main__":

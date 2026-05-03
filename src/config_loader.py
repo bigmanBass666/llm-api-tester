@@ -1,11 +1,13 @@
 """
 统一配置加载器
 安全地加载 API keys 和其他配置
+
+已集成 PlatformConfigLoader，提供统一的平台配置管理。
 """
 
 import os
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from dotenv import load_dotenv
 import yaml
 
@@ -183,6 +185,55 @@ def load_config() -> ConfigLoader:
 
 
 # ============================================
+# 平台配置集成（使用 PlatformConfigLoader）
+# ============================================
+
+def get_platform_scraper_config(platform: str):
+    """获取爬虫配置（便捷函数）
+
+    Args:
+        platform: 平台名称（如 'nvidia', 'zhipu'）
+
+    Returns:
+        ScraperConfig 实例或 None
+    """
+    from .platform_config import PlatformConfigLoader
+    return PlatformConfigLoader.get_scraper_config(platform)
+
+
+def get_platform_client_config(platform: str):
+    """获取客户端配置（便捷函数）
+
+    Args:
+        platform: 平台名称（如 'nvidia', 'zhipu'）
+
+    Returns:
+        ClientConfig 实例或 None
+    """
+    from .platform_config import PlatformConfigLoader
+    return PlatformConfigLoader.get_client_config(platform)
+
+
+def get_free_models(platform: str) -> Dict[str, str]:
+    """获取免费模型映射（便捷函数）
+
+    Args:
+        platform: 平台名称
+
+    Returns:
+        免费模型映射字典
+    """
+    from .platform_config import PlatformConfigLoader
+    return PlatformConfigLoader.get_free_models(platform)
+
+
+def get_available_platforms() -> List[str]:
+    """获取所有可用平台名称列表"""
+    from .platform_config import PlatformConfigLoader
+    return PlatformConfigLoader.get_available_platforms()
+
+
+# ============================================
 # 便捷函数（向后兼容）
 # ============================================
 
@@ -201,4 +252,9 @@ __all__ = [
     'load_config',
     'get_api_key',
     'require_api_key',
+    # 新增的平台配置函数
+    'get_platform_scraper_config',
+    'get_platform_client_config',
+    'get_free_models',
+    'get_available_platforms',
 ]
