@@ -11,7 +11,7 @@ SPEC = {
     "scraper_cls": "NvidiaScraper",
     "tester_cls": "NvidiaTester",
     "legacy_mode": True,
-    "capabilities": ["reasoning", "resume", "pagination"],
+    "capabilities": ["reasoning", "resume", "pagination", "image_generation"],
 }
 
 __all__ = ['NvidiaScraper', 'NvidiaTester']

@@ -27,7 +27,8 @@ platforms:
       pagination_wait_ms: 5000
       network_idle_timeout_ms: 10000
       max_page_turns: 10
-      max_cards_per_page: 50
+      page_size: 96
+      max_cards_per_page: 96
       api_timeout_s: 45.0
       api_connect_timeout_s: 15.0
       selectors:
@@ -86,6 +87,17 @@ platforms:
         - asr
         - tts
         - vision-language
+      image_model_categories:
+        - image-generation
+        - text-to-image
+        - image-gen
+      image_model_keywords:
+        - flux
+        - stable-diffusion
+        - sdxl
+        - dall-e
+        - imagen
+        - cogview
 
     # 模型列表（保留原有结构）
     models:

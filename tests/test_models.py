@@ -10,6 +10,7 @@ from src.models import (
     TestReport,
     TestStatus,
     ReasoningEffort,
+    ModelType,
 )
 
 
@@ -260,3 +261,56 @@ def test_model_info_is_callable_timeout():
 def test_model_info_is_callable_testing():
     m = ModelInfo(id="a", name="A", test_status="testing")
     assert m.is_callable is False
+
+
+def test_model_type_enum_values():
+    assert ModelType.TEXT.value == "text"
+    assert ModelType.IMAGE_GENERATION.value == "image_generation"
+    assert ModelType.EMBEDDING.value == "embedding"
+    assert len(ModelType) == 3
+
+
+def test_model_type_is_string_enum():
+    assert isinstance(ModelType.TEXT, str)
+
+
+def test_model_info_model_type_default():
+    m = ModelInfo(id="a", name="A")
+    assert m.model_type == ModelType.TEXT
+    assert m.is_text_model is True
+
+
+def test_model_info_model_type_image():
+    m = ModelInfo(id="a", name="A", model_type=ModelType.IMAGE_GENERATION)
+    assert m.model_type == ModelType.IMAGE_GENERATION
+    assert m.is_text_model is False
+
+
+def test_model_info_model_type_embedding():
+    m = ModelInfo(id="a", name="A", model_type=ModelType.EMBEDDING)
+    assert m.model_type == ModelType.EMBEDDING
+    assert m.is_text_model is False
+
+
+def test_model_info_to_dict_includes_is_text_model():
+    m = ModelInfo(id="a", name="A", model_type=ModelType.IMAGE_GENERATION)
+    d = m.to_dict()
+    assert "is_text_model" in d
+    assert d["is_text_model"] is False
+
+
+def test_test_result_model_type_default():
+    r = TestResult(model_id="m1")
+    assert r.model_type == "text"
+
+
+def test_test_result_model_type_image():
+    r = TestResult(model_id="m1", model_type="image_generation")
+    assert r.model_type == "image_generation"
+
+
+def test_test_result_to_dict_includes_model_type():
+    r = TestResult(model_id="m1", model_type="image_generation")
+    d = r.to_dict()
+    assert "model_type" in d
+    assert d["model_type"] == "image_generation"

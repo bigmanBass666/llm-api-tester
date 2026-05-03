@@ -24,13 +24,13 @@ def mock_base_url():
 @pytest.fixture
 def sample_model_info():
     """返回一个标准的 ModelInfo 实例用于测试"""
-    from src.models import ModelInfo, TestStatus
+    from src.models import ModelInfo, TestStatus, ModelType
     return ModelInfo(
         id="test/model-id",
         name="Test Model",
+        model_type=ModelType.TEXT,
         vendor="test",
         rank=1,
-        is_text_model=True,
         is_free_endpoint=True,
         is_downloadable=False,
         test_status=TestStatus.PENDING.value,

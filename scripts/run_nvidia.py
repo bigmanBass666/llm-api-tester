@@ -36,6 +36,10 @@ async def main():
                        default="popular",
                        choices=["popular", "recent"],
                        help="排序方式: popular(热度) 或 recent(最新发布)")
+    parser.add_argument("--model-type", type=str,
+                       default="all",
+                       choices=["text", "image", "all"],
+                       help="模型类型过滤: text, image, all")
 
     args = parser.parse_args()
 
@@ -54,9 +58,17 @@ async def main():
     print(f"   并发数: {args.concurrency}")
     print(f"   超时时间: {args.timeout}s")
     print(f"   排序方式: {args.sort_by}")
+    print(f"   模型类型: {args.model_type}")
     print()
 
-    scraper = NvidiaScraper(headless=True)
+    from src.models import ModelType
+    model_type_filter = None
+    if args.model_type == "text":
+        model_type_filter = ModelType.TEXT
+    elif args.model_type == "image":
+        model_type_filter = ModelType.IMAGE_GENERATION
+
+    scraper = NvidiaScraper(headless=True, model_type_filter=model_type_filter)
     models = await scraper.scrape(limit=args.number, sort_by=args.sort_by)
     await scraper.close()
 

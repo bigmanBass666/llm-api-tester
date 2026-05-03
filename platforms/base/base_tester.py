@@ -12,7 +12,7 @@ import sys
 import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from src.models import ModelInfo, TestResult
+from src.models import ModelInfo, TestResult, ModelType
 
 
 class BaseTester:
@@ -27,16 +27,26 @@ class BaseTester:
     base_url: str = ""
 
     async def test_single(self, model: ModelInfo, timeout: int = 60) -> TestResult:
-        """
-        测试单个模型（默认实现：使用 OpenAI 兼容 API）
+        if model.model_type == ModelType.TEXT:
+            return await self.test_text_model(model, timeout)
+        elif model.model_type == ModelType.IMAGE_GENERATION:
+            return await self.test_image_model(model, timeout)
+        else:
+            return TestResult(
+                model_id=model.id,
+                model_type=model.model_type.value,
+                rank=model.rank,
+                status="failed",
+                response_time=0.0,
+                error_message=f"Unsupported model type: {model.model_type.value}",
+                is_downloadable=model.is_downloadable,
+                is_free_endpoint=model.is_free_endpoint,
+                tags=model.tags,
+                call_volume=model.call_volume,
+                published_at=model.published_at,
+            )
 
-        子类可通过覆盖此方法实现平台特定的测试逻辑。
-        Args:
-            model: 模型信息
-            timeout: 超时时间(秒)
-        Returns:
-            测试结果
-        """
+    async def test_text_model(self, model: ModelInfo, timeout: int = 60) -> TestResult:
         start_time = time.time()
 
         try:
@@ -59,13 +69,16 @@ class BaseTester:
 
             return TestResult(
                 model_id=model.id,
+                model_type=model.model_type.value,
                 rank=model.rank,
                 status="success",
                 response_time=round(elapsed, 2),
                 response_preview=content[:100],
                 is_downloadable=model.is_downloadable,
                 is_free_endpoint=model.is_free_endpoint,
-                tags=model.tags
+                tags=model.tags,
+                call_volume=model.call_volume,
+                published_at=model.published_at,
             )
 
         except Exception as e:
@@ -79,13 +92,97 @@ class BaseTester:
 
             return TestResult(
                 model_id=model.id,
+                model_type=model.model_type.value,
                 rank=model.rank,
                 status=status,
                 response_time=round(elapsed, 2),
                 error_message=error_msg[:200],
                 is_downloadable=model.is_downloadable,
                 is_free_endpoint=model.is_free_endpoint,
-                tags=model.tags
+                tags=model.tags,
+                call_volume=model.call_volume,
+                published_at=model.published_at,
+            )
+
+    async def test_image_model(self, model: ModelInfo, timeout: int = 60) -> TestResult:
+        start_time = time.time()
+
+        try:
+            from src.platform_registry import registry, ensure_platform_registered
+            ensure_platform_registered(self.platform_name)
+            client = registry.create_client(self.platform_name, api_key=self.api_key)
+
+            result = client.generate_image(
+                model=model.id,
+                prompt="a photo of a cat",
+                width=1024,
+                height=1024,
+            )
+
+            elapsed = time.time() - start_time
+            client.close()
+
+            if result.get("success"):
+                size_kb = result["image_size_bytes"] / 1024
+                dims = result.get("image_dimensions", "unknown")
+                steps = result.get("generation_steps", "?")
+                ttfb = result.get("ttfb")
+                decode = result.get("decode_time")
+                parts = [f"[image: {dims}", f"{size_kb:.1f}KB", f"steps={steps}"]
+                if ttfb is not None:
+                    parts.append(f"ttfb={ttfb:.2f}s")
+                if decode is not None:
+                    parts.append(f"decode={decode:.2f}s")
+                preview = ", ".join(parts) + "]"
+                return TestResult(
+                    model_id=model.id,
+                    model_type=model.model_type.value,
+                    rank=model.rank,
+                    status="success",
+                    response_time=round(elapsed, 2),
+                    response_preview=preview,
+                    is_downloadable=model.is_downloadable,
+                    is_free_endpoint=model.is_free_endpoint,
+                    tags=model.tags,
+                    call_volume=model.call_volume,
+                    published_at=model.published_at,
+                )
+            else:
+                return TestResult(
+                    model_id=model.id,
+                    model_type=model.model_type.value,
+                    rank=model.rank,
+                    status="failed",
+                    response_time=round(elapsed, 2),
+                    error_message="Image generation returned failure",
+                    is_downloadable=model.is_downloadable,
+                    is_free_endpoint=model.is_free_endpoint,
+                    tags=model.tags,
+                    call_volume=model.call_volume,
+                    published_at=model.published_at,
+                )
+
+        except Exception as e:
+            elapsed = time.time() - start_time
+            error_msg = str(e)
+
+            if "Timeout" in error_msg or "timed out" in error_msg.lower():
+                status = "timeout"
+            else:
+                status = "failed"
+
+            return TestResult(
+                model_id=model.id,
+                model_type=model.model_type.value,
+                rank=model.rank,
+                status=status,
+                response_time=round(elapsed, 2),
+                error_message=error_msg[:200],
+                is_downloadable=model.is_downloadable,
+                is_free_endpoint=model.is_free_endpoint,
+                tags=model.tags,
+                call_volume=model.call_volume,
+                published_at=model.published_at,
             )
 
     async def batch_test(self, models: List[ModelInfo],

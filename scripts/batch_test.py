@@ -77,6 +77,9 @@ def main():
     opts.add_argument("--sort-by", default="popular",
                       choices=["popular", "recent"],
                       help="排序方式 (默认: popular)")
+    opts.add_argument("--model-type", default="all",
+                      choices=["text", "image", "all"],
+                      help="模型类型过滤 (默认: all)")
 
     adv = parser.add_argument_group("高级选项")
     adv.add_argument("--resume", action="store_true",
@@ -113,6 +116,7 @@ def main():
             platform=args.platform,
             number=args.number,
             sort_by=args.sort_by,
+            model_type=args.model_type,
             filter_text=not args.no_filter,
             quiet=args.quiet,
         ))
@@ -124,6 +128,7 @@ def main():
             concurrency=args.concurrency,
             timeout=args.timeout,
             sort_by=args.sort_by,
+            model_type=args.model_type,
             resume=args.resume,
             filter_text=not args.no_filter,
             quiet=args.quiet,

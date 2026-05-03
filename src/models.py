@@ -22,6 +22,12 @@ class ReasoningEffort(str, Enum):
     HIGH = "high"
 
 
+class ModelType(str, Enum):
+    TEXT = "text"
+    IMAGE_GENERATION = "image_generation"
+    EMBEDDING = "embedding"
+
+
 @dataclass
 class ChatMessage:
     """统一的消息格式"""
@@ -38,10 +44,10 @@ class ModelInfo:
 
     id: str
     name: str
+    model_type: ModelType = ModelType.TEXT
     vendor: str = ""
     rank: int = 0
     category: Optional[str] = None
-    is_text_model: bool = True
     is_free_endpoint: bool = True
     is_downloadable: bool = False
     is_available: bool = True
@@ -57,6 +63,8 @@ class ModelInfo:
     reasoning_effort: Optional[str] = None
     tags: Optional[List[str]] = None
     href: str = ""
+    call_volume: str = ""
+    published_at: Optional[str] = None
 
     @property
     def status_icon(self) -> str:
@@ -69,6 +77,10 @@ class ModelInfo:
     @property
     def is_callable(self) -> bool:
         return self.test_status == "success"
+
+    @property
+    def is_text_model(self) -> bool:
+        return self.model_type == ModelType.TEXT
 
     def to_dict(self) -> dict:
         return {
@@ -84,6 +96,8 @@ class ModelInfo:
             "category": self.category,
             "is_text_model": self.is_text_model,
             "is_callable": self.is_callable,
+            "call_volume": self.call_volume,
+            "published_at": self.published_at,
             "error": self.error_message[:200] if self.error_message else "",
         }
 
@@ -92,6 +106,7 @@ class ModelInfo:
 class TestResult:
     """独立的测试结果 — 从 ModelInfo 分离测试状态"""
     model_id: str
+    model_type: str = "text"
     rank: int = 0
     status: str = "pending"
     response_time: float = 0.0
@@ -102,10 +117,13 @@ class TestResult:
     tags: Optional[List[str]] = None
     reasoning_content: str = ""
     token_usage: int = 0
+    call_volume: str = ""
+    published_at: Optional[str] = None
 
     def to_dict(self) -> dict:
         return {
             "model_id": self.model_id,
+            "model_type": self.model_type,
             "rank": self.rank,
             "status": self.status,
             "response_time": round(self.response_time, 2),
@@ -115,6 +133,8 @@ class TestResult:
             "is_free_endpoint": self.is_free_endpoint,
             "tags": self.tags or [],
             "token_usage": self.token_usage,
+            "call_volume": self.call_volume,
+            "published_at": self.published_at,
         }
 
 

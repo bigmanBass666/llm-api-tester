@@ -99,6 +99,88 @@ class NvidiaClient(BasePlatformClient):
             if chunk.choices and chunk.choices[0].delta.content:
                 yield chunk.choices[0].delta.content
 
+    def generate_image(self, model: str, prompt: str, **kwargs) -> dict:
+        import base64
+        import requests
+        import time
+
+        width = kwargs.get('width', 1024)
+        height = kwargs.get('height', 1024)
+        seed = kwargs.get('seed', 0)
+        steps = kwargs.get('steps')
+
+        invoke_url = f"https://ai.api.nvidia.com/v1/genai/{model}"
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Accept": "application/json",
+        }
+
+        payload = {
+            "prompt": prompt,
+            "width": width,
+            "height": height,
+            "seed": seed,
+        }
+        if steps is not None:
+            payload["steps"] = steps
+
+        ttfb = None
+        gen_start = time.time()
+        response = requests.post(invoke_url, headers=headers, json=payload, timeout=120)
+
+        if response.status_code == 422:
+            error_body = response.json()
+            details = error_body.get("detail", [])
+            fixed = False
+            for d in details:
+                loc = d.get("loc", [])
+                msg = d.get("msg", "")
+                if "width" in loc and "should be" in msg:
+                    allowed = [int(x.strip()) for x in msg.split("should be")[-1].split("or") if x.strip().isdigit()] if "or" in msg else []
+                    if not allowed:
+                        nums = [int(x) for x in msg.replace(",", " ").split() if x.isdigit()]
+                        allowed = [n for n in nums if n >= 768]
+                    if allowed:
+                        payload["width"] = min(allowed, key=lambda x: abs(x - width))
+                        fixed = True
+                if "height" in loc and "should be" in msg:
+                    allowed = [int(x.strip()) for x in msg.split("should be")[-1].split("or") if x.strip().isdigit()] if "or" in msg else []
+                    if not allowed:
+                        nums = [int(x) for x in msg.replace(",", " ").split() if x.isdigit()]
+                        allowed = [n for n in nums if n >= 768]
+                    if allowed:
+                        payload["height"] = min(allowed, key=lambda x: abs(x - height))
+                        fixed = True
+                if "steps" in loc:
+                    payload.pop("steps", None)
+                    fixed = True
+            if fixed:
+                gen_start = time.time()
+                response = requests.post(invoke_url, headers=headers, json=payload, timeout=120)
+
+        ttfb = time.time() - gen_start
+        response.raise_for_status()
+
+        decode_start = time.time()
+        response_body = response.json()
+        img_data = response_body['artifacts'][0]['base64']
+        img_bytes = base64.b64decode(img_data)
+        decode_time = time.time() - decode_start
+
+        actual_w = payload.get("width", width)
+        actual_h = payload.get("height", height)
+        actual_steps = payload.get("steps")
+
+        return {
+            "success": True,
+            "image_size_bytes": len(img_bytes),
+            "image_dimensions": f"{actual_w}x{actual_h}",
+            "generation_steps": actual_steps,
+            "ttfb": round(ttfb, 3),
+            "decode_time": round(decode_time, 3),
+        }
+
     def list_models(self) -> List[ModelInfo]:
         models = self.client.models.list()
         return [

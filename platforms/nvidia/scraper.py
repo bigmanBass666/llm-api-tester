@@ -13,7 +13,7 @@ import httpx
 
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from src.models import ModelInfo
+from src.models import ModelInfo, ModelType
 from platforms.base.base_scraper import BaseScraper
 from src.platform_config import PlatformConfigLoader
 
@@ -23,9 +23,9 @@ class NvidiaScraper(BaseScraper):
 
     platform_name = "nvidia"
 
-    def __init__(self, headless: bool = True, filter_text_models: bool = False):
+    def __init__(self, headless: bool = True, model_type_filter: Optional['ModelType'] = None):
         self.headless = headless
-        self.filter_text_models = filter_text_models
+        self.model_type_filter = model_type_filter
         self.browser = None
         self.page = None
         self._cookie_closed = False
@@ -47,6 +47,7 @@ class NvidiaScraper(BaseScraper):
             'pagination_wait_ms': config.pagination_wait_ms,
             'network_idle_timeout_ms': config.network_idle_timeout_ms,
             'max_page_turns': config.max_page_turns,
+            'page_size': config.page_size,
             'max_cards_per_page': config.max_cards_per_page,
             'api_timeout_s': config.api_timeout_s,
             'api_connect_timeout_s': config.api_connect_timeout_s,
@@ -55,6 +56,8 @@ class NvidiaScraper(BaseScraper):
         self.SELECTORS = config.selectors
         self.TEXT_MODEL_CATEGORIES = config.text_model_categories
         self.NON_TEXT_KEYWORDS = config.non_text_keywords
+        self.IMAGE_MODEL_CATEGORIES = config.image_model_categories
+        self.IMAGE_MODEL_KEYWORDS = config.image_model_keywords
 
     async def scrape(self, limit: int = 50, sort_by: str = "popular", sort_order: str = "DESC") -> List[ModelInfo]:
         """
@@ -71,12 +74,11 @@ class NvidiaScraper(BaseScraper):
         if sort_by not in ["popular", "recent"]:
             raise ValueError(f"不支持的排序方式: {sort_by}，可选值: popular, recent")
 
-        # 构建 URL
         if sort_by == "popular":
-            base_url = f"{self._CONFIG['base_url']}/models?orderBy=weightPopular%3ADESC"
+            base_url = f"{self._CONFIG['base_url']}/models?orderBy=weightPopular%3ADESC&pageSize={self._CONFIG['page_size']}"
             sort_name = "热度"
-        else:  # recent
-            base_url = f"{self._CONFIG['base_url']}/models"
+        else:
+            base_url = f"{self._CONFIG['base_url']}/models?pageSize={self._CONFIG['page_size']}"
             sort_name = "最新"
 
         print(f"🔍 NVIDIA: 开始获取模型列表 (目标: {limit} 个, 排序: {sort_name})")
@@ -107,6 +109,7 @@ class NvidiaScraper(BaseScraper):
                     break
 
                 existing_ids = {m.id for m in all_models}
+                existing_ids_before = set(existing_ids)
                 new_models = []
 
                 for model in page_models:
@@ -121,9 +124,9 @@ class NvidiaScraper(BaseScraper):
                         continue
 
                     # 文字模型过滤
-                    if self.filter_text_models and not model.is_text_model:
+                    if self.model_type_filter is not None and model.model_type != self.model_type_filter:
                         filtered_count += 1
-                        print(f"  🚫 过滤非文字模型: {model.id}", flush=True)
+                        print(f"  🚫 过滤模型(类型不匹配): {model.id} ({model.model_type.value})", flush=True)
                         continue
 
                     # 设置排名
@@ -134,8 +137,8 @@ class NvidiaScraper(BaseScraper):
                 all_models.extend(new_models)
                 print(f"   第{current_page}页: 获取 {len(page_models)} 个 (新增 {len(new_models)}个), 累计 {len(all_models)} 个", flush=True)
 
-                # 检查是否没有新模型（可能到达最后一页）
-                if len(new_models) == 0 and len(page_models) > 0 and current_page > 1:
+                page_new_ids = sum(1 for m in page_models if m.id not in existing_ids_before)
+                if page_new_ids == 0 and len(page_models) > 0 and current_page > 1:
                     print(f"   ⚠️ 本页模型已全部重复，可能到达最后一页", flush=True)
                     break
 
@@ -152,8 +155,8 @@ class NvidiaScraper(BaseScraper):
 
             final_models = all_models[:limit]
 
-            if self.filter_text_models and filtered_count > 0:
-                print(f"🚫 已过滤 {filtered_count} 个非文字模型")
+            if self.model_type_filter is not None and filtered_count > 0:
+                print(f"🚫 已过滤 {filtered_count} 个类型不匹配的模型")
 
             print(f"\n✅ 共获取 {len(final_models)} 个模型 ({current_page-1} 页)")
             return final_models
@@ -254,15 +257,33 @@ class NvidiaScraper(BaseScraper):
                     except Exception:
                         pass
 
+                    # 提取调用量和发布时间（从 span[aria-label] 属性）
+                    call_volume = ""
+                    published_at = None
+                    try:
+                        span_elements = await card.query_selector_all("span[aria-label]")
+                        for span in span_elements:
+                            aria_label = await span.get_attribute("aria-label")
+                            if not aria_label:
+                                continue
+                            if "API calls" in aria_label:
+                                call_volume = aria_label
+                            elif any(m in aria_label for m in ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]):
+                                published_at = aria_label
+                    except Exception:
+                        pass
+
                     # 确定最终模型 ID
                     final_id = full_model_id if full_model_id else model_name
 
                     # 判断是否为文字模型
-                    is_text = self._is_text_model_from_category(category, final_id)
+                    from src.models import ModelType
+                    classified_type = self._classify_model_type(category, final_id)
 
                     model = ModelInfo(
                         id=final_id,
                         name=model_name,
+                        model_type=classified_type,
                         vendor=vendor,
                         rank=i,
                         is_available=True,
@@ -271,14 +292,17 @@ class NvidiaScraper(BaseScraper):
                         is_free_endpoint=free_endpoint,
                         tags=tags,
                         category=category,
-                        is_text_model=is_text
+                        call_volume=call_volume,
+                        published_at=published_at,
                     )
                     models.append(model)
 
                     # 打印前5个和最后一个的详情
                     if i <= 3 or i == len(model_cards):
                         tag_str = ", ".join(tags) if tags else "无"
-                        print(f"  #{i}: {final_id} [{tag_str}]", flush=True)
+                        cv_str = f" | 📞{call_volume}" if call_volume else ""
+                        pub_str = f" | 📅{published_at}" if published_at else ""
+                        print(f"  #{i}: {final_id} [{tag_str}]{cv_str}{pub_str}", flush=True)
 
                 except Exception as e:
                     print(f"  ⚠️ 解析卡片 {i} 失败: {e}", flush=True)
@@ -350,37 +374,23 @@ class NvidiaScraper(BaseScraper):
         print(f"⚠️ 经过 {max_retries} 次尝试后仍无法获取 API 映射表")
         return model_map
 
-    def _is_text_model_from_category(self, category: Optional[str], model_id: str) -> bool:
-        """
-        判断是否为文字模型
-
-        使用双重策略:
-        1. 优先根据 Category Tag 白名单判断
-        2. 其次根据模型 ID 黑名单关键词判断
-
-        Args:
-            category: 模型分类标签
-            model_id: 模型ID
-
-        Returns:
-            bool: 是否为文字模型
-        """
-        # 策略1: 基于 Category Tag 判断
+    def _classify_model_type(self, category: Optional[str], model_id: str) -> 'ModelType':
+        from src.models import ModelType
         if category:
+            if category in self.IMAGE_MODEL_CATEGORIES:
+                return ModelType.IMAGE_GENERATION
             if category in self.TEXT_MODEL_CATEGORIES:
-                return True
-            # 明确的非文字类型标签
+                return ModelType.TEXT
             if any(kw in category for kw in ['embedding', 'extraction', 'speech', 'asr', 'tts', 'vision-language']):
-                return False
-
-        # 策略2: 基于模型 ID 关键词兜底判断
+                return ModelType.EMBEDDING
         model_id_lower = model_id.lower()
+        for keyword in self.IMAGE_MODEL_KEYWORDS:
+            if keyword in model_id_lower:
+                return ModelType.IMAGE_GENERATION
         for keyword in self.NON_TEXT_KEYWORDS:
             if keyword in model_id_lower:
-                return False
-
-        # 默认认为是文字模型
-        return True
+                return ModelType.EMBEDDING
+        return ModelType.TEXT
 
     async def _go_to_next_page(self) -> bool:
         """
@@ -525,18 +535,18 @@ class NvidiaScraper(BaseScraper):
         return short_name
 
 
-async def scrape_top_models(limit: int = 50, sort_by: str = "popular", filter_text_models: bool = False) -> List[ModelInfo]:
+async def scrape_top_models(limit: int = 50, sort_by: str = "popular", model_type_filter: Optional['ModelType'] = None) -> List[ModelInfo]:
     """爬取前N个热门模型（便捷函数）
 
     Args:
         limit: 爬取的模型数量
         sort_by: 排序方式，'popular' 或 'recent'
-        filter_text_models: 是否只爬取文字模型
+        model_type_filter: 模型类型过滤（None=全部, ModelType.TEXT=仅文本, ModelType.IMAGE_GENERATION=仅文生图）
 
     Returns:
         ModelInfo 列表
     """
-    scraper = NvidiaScraper(headless=True, filter_text_models=filter_text_models)
+    scraper = NvidiaScraper(headless=True, model_type_filter=model_type_filter)
     try:
         return await scraper.scrape(limit=limit, sort_by=sort_by)
     finally:

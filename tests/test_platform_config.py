@@ -77,7 +77,7 @@ class TestPlatformConfigLoader:
         assert scraper_config.pagination_wait_ms == 5000
         assert scraper_config.network_idle_timeout_ms == 10000
         assert scraper_config.max_page_turns == 10
-        assert scraper_config.max_cards_per_page == 50
+        assert scraper_config.max_cards_per_page == 96
         assert scraper_config.api_timeout_s == 45.0
         assert scraper_config.api_connect_timeout_s == 15.0
 

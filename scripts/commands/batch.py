@@ -7,11 +7,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from src import registry
 from src.platform_registry import get_platform_spec, create_component, ensure_platform_registered, get_api_key
-from src.models import ChatMessage
+from src.models import ChatMessage, ModelType
 
 
 async def run(platform, number=20, concurrency=5, timeout=60, sort_by="popular",
-              scrape_only=False, resume=False, filter_text=True, quiet=False):
+              model_type="all", scrape_only=False, resume=False, filter_text=True, quiet=False):
     ensure_platform_registered(platform)
     api_key = get_api_key(platform)
     spec = get_platform_spec(platform)
@@ -27,14 +27,21 @@ async def run(platform, number=20, concurrency=5, timeout=60, sort_by="popular",
         print(f"  并发数   : {concurrency}")
         print(f"  超时时间 : {timeout}s")
         print(f"  排序方式 : {sort_by}")
+        print(f"  模型类型 : {model_type}")
         if scrape_only:
             print(f"  模式     : 仅爬取")
         print()
 
+    model_type_filter = None
+    if model_type == "text":
+        model_type_filter = ModelType.TEXT
+    elif model_type == "image":
+        model_type_filter = ModelType.IMAGE_GENERATION
+
     if spec and spec.legacy_mode:
         from crawler.scraper import scrape_top_models
         models = await scrape_top_models(number, sort_by=sort_by,
-                                         filter_text_models=filter_text)
+                                         model_type_filter=model_type_filter)
     elif spec and spec.scraper_cls is not None:
         scraper = create_component(platform, "scraper")
         models = await scraper.scrape(limit=number)

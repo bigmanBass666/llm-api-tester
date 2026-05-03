@@ -7,6 +7,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from src import registry
 from src.platform_config import PlatformConfigLoader
 from src.platform_registry import ensure_platform_registered
+from src.models import ModelType
 
 
 def list_platforms():
@@ -56,17 +57,21 @@ async def list_models(platform: str):
         client.close()
 
 
-async def scrape_only(platform: str, number: int = 20, sort_by: str = "popular", filter_text: bool = True, quiet: bool = False):
+async def scrape_only(platform: str, number: int = 20, sort_by: str = "popular", model_type: str = "all", filter_text: bool = True, quiet: bool = False):
     ensure_platform_registered(platform)
     from src.platform_registry import get_platform_spec, create_component
     spec = get_platform_spec(platform)
-    if spec is None:
-        raise ValueError(f"平台 {platform} 无可用规格")
 
-    if spec.legacy_mode:
+    model_type_filter = None
+    if model_type == "text":
+        model_type_filter = ModelType.TEXT
+    elif model_type == "image":
+        model_type_filter = ModelType.IMAGE_GENERATION
+
+    if spec and spec.legacy_mode:
         from crawler.scraper import scrape_top_models
-        models = await scrape_top_models(limit=number, sort_by=sort_by, filter_text_models=filter_text)
-    elif spec.scraper_cls:
+        models = await scrape_top_models(limit=number, sort_by=sort_by, model_type_filter=model_type_filter)
+    elif spec and spec.scraper_cls:
         scraper = create_component(platform, "scraper")
         models = await scraper.scrape(limit=number)
     else:

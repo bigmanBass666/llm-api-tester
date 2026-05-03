@@ -56,8 +56,10 @@ class BasePlatformClient(ABC):
 
     @abstractmethod
     async def chat_stream(self, model: str, messages: List[ChatMessage], **kwargs) -> AsyncIterator[str]:
-        """流式聊天（异步迭代器）"""
         pass
+
+    def generate_image(self, model: str, prompt: str, **kwargs) -> dict:
+        raise NotImplementedError(f"{self.platform_name} 不支持文生图功能")
 
     @abstractmethod
     def list_models(self) -> List[ModelInfo]:

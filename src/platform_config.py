@@ -19,12 +19,15 @@ class ScraperConfig:
     pagination_wait_ms: int = 5000
     network_idle_timeout_ms: int = 10000
     max_page_turns: int = 10
-    max_cards_per_page: int = 50
+    page_size: int = 96
+    max_cards_per_page: int = 96
     api_timeout_s: float = 45.0
     api_connect_timeout_s: float = 15.0
     selectors: Dict[str, str] = field(default_factory=dict)
     text_model_categories: Set[str] = field(default_factory=set)
     non_text_keywords: List[str] = field(default_factory=list)
+    image_model_categories: Set[str] = field(default_factory=set)
+    image_model_keywords: List[str] = field(default_factory=list)
     known_models: List[Dict[str, object]] = field(default_factory=list)
 
 
@@ -122,12 +125,15 @@ class PlatformConfigLoader:
                 pagination_wait_ms=scraper_data.get('pagination_wait_ms', 5000),
                 network_idle_timeout_ms=scraper_data.get('network_idle_timeout_ms', 10000),
                 max_page_turns=scraper_data.get('max_page_turns', 10),
-                max_cards_per_page=scraper_data.get('max_cards_per_page', 50),
+                page_size=scraper_data.get('page_size', 96),
+                max_cards_per_page=scraper_data.get('max_cards_per_page', 96),
                 api_timeout_s=scraper_data.get('api_timeout_s', 45.0),
                 api_connect_timeout_s=scraper_data.get('api_connect_timeout_s', 15.0),
                 selectors=scraper_data.get('selectors', {}),
                 text_model_categories=set(scraper_data.get('text_model_categories', [])),
                 non_text_keywords=scraper_data.get('non_text_keywords', []),
+                image_model_categories=set(scraper_data.get('image_model_categories', [])),
+                image_model_keywords=scraper_data.get('image_model_keywords', []),
                 known_models=scraper_data.get('known_models', []),
             )
 
@@ -203,16 +209,18 @@ class PlatformConfigLoader:
 
     @classmethod
     def get_non_text_keywords(cls, platform_name: str) -> List[str]:
-        """获取非文字模型关键词（便捷方法）
-
-        Args:
-            platform_name: 平台名称
-
-        Returns:
-            非文字模型关键词列表，如果未找到则返回空列表
-        """
         scraper_config = cls.get_scraper_config(platform_name)
         return scraper_config.non_text_keywords if scraper_config else []
+
+    @classmethod
+    def get_image_model_categories(cls, platform_name: str) -> Set[str]:
+        scraper_config = cls.get_scraper_config(platform_name)
+        return scraper_config.image_model_categories if scraper_config else set()
+
+    @classmethod
+    def get_image_model_keywords(cls, platform_name: str) -> List[str]:
+        scraper_config = cls.get_scraper_config(platform_name)
+        return scraper_config.image_model_keywords if scraper_config else []
 
     @classmethod
     def get_selectors(cls, platform_name: str) -> Dict[str, str]:
@@ -278,4 +286,6 @@ __all__ = [
     'ClientConfig',
     'PlatformConfig',
     'PlatformConfigLoader',
+    'get_image_model_categories',
+    'get_image_model_keywords',
 ]

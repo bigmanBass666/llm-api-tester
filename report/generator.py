@@ -6,7 +6,7 @@
 import json
 import os
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 import sys
 import os as os_module
@@ -22,6 +22,7 @@ class MarkdownFormatter:
         'free': '🔓',
         'flash': '⚡',
         'thinking': '🤔',
+        'image_generation': '🎨',
     }
 
     def format(self, report: TestReport) -> str:
@@ -51,8 +52,8 @@ class MarkdownFormatter:
 
 ## 🏆 最快模型排行榜 (Top 10)
 
-| 排名 | 模型ID | 标签 | 响应时间 | 状态 |
-|------|--------|------|----------|------|
+| 排名 | 模型ID | 调用量 | 发布时间 | 响应时间 | 状态 |
+|------|--------|--------|----------|----------|------|
 """
 
         successful = sorted(
@@ -61,22 +62,26 @@ class MarkdownFormatter:
         )
 
         for i, r in enumerate(successful[:10], 1):
-            tags_str = self._format_tags(r.tags)
-            md += f"| {i} | {r.model_id} | {tags_str} | {r.response_time:.2f}s | ✅ |\n"
+            cv = self._format_call_volume(r.call_volume)
+            pub = self._format_published_at(r.published_at)
+            md += f"| {i} | {r.model_id} | {cv} | {pub} | {r.response_time:.2f}s | ✅ |\n"
 
         md += """
 ---
 
-## 🎯 完整测试结果 (按热度排序)
+## 🎯 文本模型测试结果 (按热度排序)
 
-| 热度排名 | 模型ID | 标签 | 响应时间 | 状态/错误 |
-|----------|--------|------|----------|----------|
+| 热度排名 | 模型ID | 调用量 | 发布时间 | 标签 | 响应时间 | 状态/错误 |
+|----------|--------|--------|----------|------|----------|----------|
 """
-
         sorted_results = sorted(report.results, key=lambda x: x.rank)
+        text_results = [r for r in sorted_results if r.model_type != 'image_generation']
+        image_results = [r for r in sorted_results if r.model_type == 'image_generation']
 
-        for r in sorted_results:
+        for r in text_results:
             tags_str = self._format_tags(r.tags)
+            cv = self._format_call_volume(r.call_volume)
+            pub = self._format_published_at(r.published_at)
             if r.status == 'success':
                 status_icon = '✅'
                 detail = '成功'
@@ -87,7 +92,35 @@ class MarkdownFormatter:
                 status_icon = '❌'
                 detail = r.error_message[:40] if r.error_message else r.status
 
-            md += f"| {r.rank} | {r.model_id} | {tags_str} | {r.response_time:.2f}s | {status_icon} {detail} |\n"
+            md += f"| {r.rank} | {r.model_id} | {cv} | {pub} | {tags_str} | {r.response_time:.2f}s | {status_icon} {detail} |\n"
+
+        if image_results:
+            md += """
+---
+
+## 🎨 文生图模型测试结果
+
+| 热度排名 | 模型ID | 调用量 | 发布时间 | 标签 | 响应时间 | 图片信息 | 状态/错误 |
+|----------|--------|--------|----------|------|----------|----------|----------|
+"""
+            for r in image_results:
+                tags_str = self._format_tags(r.tags)
+                cv = self._format_call_volume(r.call_volume)
+                pub = self._format_published_at(r.published_at)
+                if r.status == 'success':
+                    status_icon = '✅'
+                    detail = '成功'
+                    img_info = r.response_preview or '-'
+                elif r.status == 'timeout':
+                    status_icon = '⏰'
+                    detail = '超时'
+                    img_info = '-'
+                else:
+                    status_icon = '❌'
+                    detail = r.error_message[:40] if r.error_message else r.status
+                    img_info = '-'
+
+                md += f"| {r.rank} | {r.model_id} | {cv} | {pub} | {tags_str} | {r.response_time:.2f}s | {img_info} | {status_icon} {detail} |\n"
 
         md += f"""
 ---
@@ -114,6 +147,21 @@ class MarkdownFormatter:
             return '-'
         icons = [self.TAG_ICONS.get(t, t) for t in tags]
         return ' '.join(icons)
+
+    def _format_call_volume(self, call_volume: str) -> str:
+        """格式化调用量显示"""
+        if not call_volume:
+            return '-'
+        if "API calls" in call_volume:
+            parts = call_volume.split(" ")
+            return parts[0] if parts else call_volume
+        return call_volume
+
+    def _format_published_at(self, published_at: Optional[str]) -> str:
+        """格式化发布时间显示"""
+        if not published_at:
+            return '-'
+        return published_at
 
     def save(self, content: str, filepath: str):
         """保存 Markdown 文件"""
@@ -155,18 +203,6 @@ class ReportGenerator:
         self.json_formatter = JsonFormatter()
 
     def generate(self, results: List[TestResult], output_dir: str = "docs") -> dict:
-        """
-        生成报告
-
-        Args:
-            results: 测试结果列表
-            output_dir: 输出目录
-
-        Returns:
-            包含文件路径的字典
-        """
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-
         report = TestReport(
             timestamp=datetime.now().isoformat(),
             platform=self.platform,
@@ -180,8 +216,8 @@ class ReportGenerator:
         platform_dir = f"{output_dir}/{self.platform}"
         raw_dir = f"{output_dir}/raw-data/{self.platform}"
 
-        md_file = f"{platform_dir}/{self.platform.upper()}_BATCH_TEST_{timestamp}.md"
-        json_file = f"{raw_dir}/{self.platform}_raw_{timestamp}.json"
+        md_file = f"{platform_dir}/{self.platform.upper()}_BATCH_TEST.md"
+        json_file = f"{raw_dir}/{self.platform}_raw.json"
 
         md_content = self.md_formatter.format(report)
         self.md_formatter.save(md_content, md_file)

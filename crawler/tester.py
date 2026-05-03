@@ -566,6 +566,7 @@ async def test_top_models(limit: int = 50, concurrency: int = 5,
                           use_logger: bool = True, resume: bool = False,
                           sort_by: str = "popular",
                           filter_text_models: bool = True,
+                          model_type_filter=None,
                           reasoning_timeout: int = 180,
                           force_reasoning: bool = False,
                           force_normal: bool = False,
@@ -579,6 +580,7 @@ async def test_top_models(limit: int = 50, concurrency: int = 5,
         resume: 是否启用断点续传（默认关闭）
         sort_by: 排序方式，'popular' 或 'recent'
         filter_text_models: 是否过滤非文本模型（默认 True）
+        model_type_filter: 模型类型过滤（None=全部, ModelType.TEXT=仅文本, ModelType.IMAGE_GENERATION=仅文生图）
         reasoning_timeout: 推理模型超时时间（秒）
         force_reasoning: 强制所有模型使用推理模式
         force_normal: 强制所有模型使用普通模式
@@ -600,8 +602,11 @@ async def test_top_models(limit: int = 50, concurrency: int = 5,
     else:
         print("1. 爬取模型列表...")
 
+    from src.models import ModelType
+    if model_type_filter is None and filter_text_models:
+        model_type_filter = ModelType.TEXT
     models = await scrape_top_models(limit, sort_by=sort_by,
-                                    filter_text_models=filter_text_models)
+                                    model_type_filter=model_type_filter)
 
     if not models:
         if logger:
