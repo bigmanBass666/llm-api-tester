@@ -17,8 +17,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # 确保平台注册表加载
 from src import platform_registry  # noqa: F401
-from src.zhipu_client import ZhipuClient
-from src.base_client import ChatMessage
+from platforms.zhipu.client import ZhipuClient
+from src.models import ChatMessage
 
 from speed_tester import BaseSpeedTestSuite, SpeedTestResult
 
@@ -71,7 +71,7 @@ class ZhipuSpeedTestSuite(BaseSpeedTestSuite):
             {
                 "id": m.id,
                 "name": m.name,
-                "platform": m.platform,
+                "platform": m.vendor,
                 "tags": getattr(m, 'tags', []) or []
             }
             for m in models
@@ -138,7 +138,7 @@ class ZhipuSpeedTestSuite(BaseSpeedTestSuite):
                     result.ttft = None  # 无法获取TTFT
                 except Exception as e2:
                     result.error = f"降级失败: {str(e2)} (原始: {err_msg})"
-                    result.error_type = type(e).__name__
+                    result.error_type = type(e2).__name__
                     result.total_time = time.time() - start
 
             # 处理限流
@@ -159,7 +159,7 @@ class ZhipuSpeedTestSuite(BaseSpeedTestSuite):
                     result.total_time = time.time() - start
                 except Exception as e2:
                     result.error = f"重试失败: {str(e2)}"
-                    result.error_type = type(e).__name__
+                    result.error_type = type(e2).__name__
                     result.total_time = time.time() - start
             else:
                 result.error = err_msg

@@ -6,7 +6,7 @@
 from typing import Optional, Dict, List, Type, Callable
 from dataclasses import dataclass, field
 
-from .base_client import BaseClient, ChatMessage, ModelInfo
+from .models import ModelInfo, ChatMessage
 
 
 @dataclass
@@ -14,7 +14,7 @@ class PlatformConfig:
     """平台配置"""
     name: str  # 平台标识（nvidia, aliyun, etc.）
     display_name: str  # 显示名称
-    client_class: Type[BaseClient]  # 客户端类
+    client_class: Type  # 客户端类（不再限制为 BaseClient）
     default_base_url: Optional[str] = None  # 默认基础 URL
     api_key_env: Optional[str] = None  # API Key 环境变量名
     is_available: bool = True  # 是否可用
@@ -27,7 +27,7 @@ class PlatformRegistry:
 
     _instance: Optional['PlatformRegistry'] = None
     _platforms: Dict[str, PlatformConfig] = {}
-    _default_client: Optional[BaseClient] = None
+    _default_client = None
 
     def __new__(cls):
         if cls._instance is None:
@@ -61,7 +61,7 @@ class PlatformRegistry:
         platform: str,
         api_key: Optional[str] = None,
         **kwargs
-    ) -> BaseClient:
+    ):
         """
         创建平台客户端
 
@@ -106,7 +106,7 @@ class PlatformRegistry:
         self._default_client = self.create_client(platform, api_key, **kwargs)
 
     @property
-    def default_client(self) -> Optional[BaseClient]:
+    def default_client(self):
         """获取默认客户端"""
         return self._default_client
 
@@ -118,7 +118,7 @@ registry = PlatformRegistry()
 def register_platform(
     name: str,
     display_name: str,
-    client_class: Type[BaseClient],
+    client_class: Type,
     default_base_url: Optional[str] = None,
     api_key_env: Optional[str] = None,
     is_available: bool = True,
@@ -135,10 +135,10 @@ def register_platform(
             client_class=NvidiaClient,
             api_key_env="NVIDIA_API_KEY"
         )
-        class NvidiaClient(BaseClient):
+        class NvidiaClient(BasePlatformClient):
             ...
     """
-    def decorator(cls: Type[BaseClient]) -> Type[BaseClient]:
+    def decorator(cls: Type) -> Type:
         config = PlatformConfig(
             name=name,
             display_name=display_name,
@@ -231,7 +231,7 @@ def test_connection(platform: str, api_key: Optional[str] = None, **kwargs) -> b
     Args:
         platform: 平台标识
         api_key: API 密钥
-        **kwargs: 其他配置
+        **kwargs: 其他参数
 
     Returns:
         连接是否成功

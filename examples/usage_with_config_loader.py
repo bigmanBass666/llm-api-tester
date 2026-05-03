@@ -6,8 +6,9 @@
 import os
 from src.config_loader import ConfigLoader, get_api_key
 from src.platform_registry import registry, use_platform
-from src.nvidia_client import nvidia_chat, NvidiaClient
-from src.zhipu_client import zhipu_chat, ZhipuClient
+from src import nvidia_chat, zhipu_chat
+from platforms.nvidia.client import NvidiaClient
+from platforms.zhipu.client import ZhipuClient
 
 
 def example_1_direct_api_key():
@@ -60,7 +61,7 @@ def example_3_explicit_api_key():
     api_key = os.getenv("NVIDIA_API_KEY")
 
     if api_key:
-        from src.nvidia_client import NvidiaClient
+        from platforms.nvidia.client import NvidiaClient
         client = NvidiaClient(api_key=api_key)
         print(f"✅ 使用显式 key 创建客户端: {client}")
         client.close()

@@ -10,7 +10,9 @@ import argparse
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src import registry, NvidiaClient
+from src import registry
+from platforms.nvidia.client import NvidiaClient
+from src.models import ChatMessage
 
 
 def test_platform(platform: str, verbose: bool = True):
@@ -53,7 +55,6 @@ def test_platform(platform: str, verbose: bool = True):
                         print(f"  ⏭️ 跳过（非预定义免费模型）")
                     continue
 
-            from src.base_client import ChatMessage
             response = client.chat(
                 model.id,
                 [ChatMessage(role="user", content="Hi")],

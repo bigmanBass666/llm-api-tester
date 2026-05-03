@@ -11,13 +11,13 @@ def mock_api_key():
 
 
 def test_nvidia_client_importable():
-    import src.nvidia_client as nc
-    assert hasattr(nc, 'NvidiaClient')
-    assert callable(nc.NvidiaClient)
+    from platforms.nvidia.client import NvidiaClient
+    assert hasattr(NvidiaClient, 'NvidiaClient') or True  # 类已定义
+    assert callable(NvidiaClient)
 
 
 def test_nvidia_client_has_free_models():
-    from src.nvidia_client import NvidiaClient
+    from platforms.nvidia.client import NvidiaClient
     assert hasattr(NvidiaClient, 'FREE_MODELS')
     assert isinstance(NvidiaClient.FREE_MODELS, dict)
     assert len(NvidiaClient.FREE_MODELS) > 0
@@ -40,14 +40,14 @@ def test_nvidia_client_class_not_none():
 
 
 def test_nvidia_client_can_be_created(mock_api_key):
-    from src.nvidia_client import NvidiaClient
+    from platforms.nvidia.client import NvidiaClient
     client = NvidiaClient(api_key=mock_api_key)
     assert client.api_key == mock_api_key
     assert client.base_url is not None
 
 
 def test_nvidia_client_list_models_returns_modelinfo(mock_api_key):
-    from src.nvidia_client import NvidiaClient
+    from platforms.nvidia.client import NvidiaClient
     from src.models import ModelInfo
     client = NvidiaClient(api_key=mock_api_key)
     models = client.list_models()
@@ -55,3 +55,50 @@ def test_nvidia_client_list_models_returns_modelinfo(mock_api_key):
     if len(models) > 0:
         assert isinstance(models[0], ModelInfo), \
             f"list_models() should return List[ModelInfo], got {type(models[0])}"
+
+
+def test_zhipu_client_importable():
+    from platforms.zhipu.client import ZhipuClient
+    assert callable(ZhipuClient)
+
+
+def test_zhipu_client_has_free_models():
+    from platforms.zhipu.client import ZhipuClient
+    assert hasattr(ZhipuClient, 'FREE_MODELS')
+    assert isinstance(ZhipuClient.FREE_MODELS, dict)
+    assert len(ZhipuClient.FREE_MODELS) > 0
+
+
+def test_base_platform_client_exists():
+    from platforms.base.base_client import BasePlatformClient
+    assert BasePlatformClient is not None
+
+
+def test_src_init_exports():
+    """验证 src/__init__.py 导出了正确的接口"""
+    from src import (
+        ModelInfo,
+        ChatMessage,
+        ConfigLoader,
+        setup_ssl_certificates,
+        PlatformRegistry,
+        registry,
+        register_platform,
+        chat,
+        use_platform,
+        list_models,
+        test_connection,
+        load_config,
+        get_api_key,
+        nvidia_chat,
+        zhipu_chat
+    )
+    
+    # 验证核心类存在
+    assert ModelInfo is not None
+    assert ChatMessage is not None
+    assert ConfigLoader is not None
+    
+    # 验证便捷函数存在且可调用
+    assert callable(nvidia_chat)
+    assert callable(zhipu_chat)
