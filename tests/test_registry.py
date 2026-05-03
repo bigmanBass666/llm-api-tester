@@ -92,12 +92,12 @@ def test_src_init_exports():
         nvidia_chat,
         zhipu_chat
     )
-
+    
     # 验证核心类存在
     assert ModelInfo is not None
     assert ChatMessage is not None
     assert ConfigLoader is not None
-
+    
     # 验证便捷函数存在且可调用
     assert callable(nvidia_chat)
     assert callable(zhipu_chat)
