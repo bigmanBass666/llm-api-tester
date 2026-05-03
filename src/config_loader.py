@@ -15,13 +15,6 @@ import yaml
 class ConfigLoader:
     """统一配置加载器"""
 
-    ENV_VAR_MAP = {
-        'nvidia': 'NVIDIA_API_KEY',
-        'zhipu': 'ZHIPU_API_KEY',
-        'aliyun': 'DASHSCOPE_API_KEY',
-        'tencent': 'TENCENTCLOUD_SECRET_ID',
-    }
-
     _yaml_config: Optional[Dict[str, Any]] = None
 
     @classmethod
@@ -94,16 +87,24 @@ class ConfigLoader:
         Raises:
             ValueError: 如果未找到 API key
         """
+        from .platform_config import PlatformConfigLoader
+
         platform = platform.lower()
 
-        if platform not in cls.ENV_VAR_MAP:
-            available = ', '.join(cls.ENV_VAR_MAP.keys())
+        config = PlatformConfigLoader.get_config(platform)
+        if not config:
+            available = ', '.join(PlatformConfigLoader.get_available_platforms())
             raise ValueError(
                 f"未知平台: {platform}\n"
                 f"可用平台: {available}"
             )
 
-        env_var_name = cls.ENV_VAR_MAP[platform]
+        env_var_name = config.api_key_env
+        if not env_var_name:
+            raise ValueError(
+                f"平台 {platform} 未配置 API Key 环境变量"
+            )
+
         key = os.getenv(env_var_name)
 
         if not key:
@@ -156,21 +157,20 @@ class ConfigLoader:
         Returns:
             {平台: 是否配置成功} 的字典
         """
-        from .platform_registry import PlatformRegistry
+        from .platform_config import PlatformConfigLoader
 
-        # PlatformRegistry 使用 __new__ 实现单例，直接调用即可
-        registry = PlatformRegistry()
+        configs = PlatformConfigLoader.load_all()
         results = {}
 
-        for platform, config in registry._platforms.items():
+        for name, config in configs.items():
             if not config.is_available:
                 continue
 
             try:
-                cls.get_api_key(platform)
-                results[platform] = True
+                cls.get_api_key(name)
+                results[name] = True
             except ValueError:
-                results[platform] = False
+                results[name] = False
 
         return results
 

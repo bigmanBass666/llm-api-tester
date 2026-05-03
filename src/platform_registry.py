@@ -157,19 +157,38 @@ def create_component(platform: str, role: str, **kwargs):
     spec = get_platform_spec(platform)
     if spec is None:
         raise ValueError(f"平台 {platform} 无可用规格（SPEC）")
-    cls_name = None
-    if role == "scraper":
-        cls_name = spec.scraper_cls
-    elif role == "tester":
-        cls_name = spec.tester_cls
-    else:
-        raise ValueError(f"未知角色: {role}，支持: scraper, tester")
+    cls_name = getattr(spec, f"{role}_cls", None)
     if cls_name is None:
         raise ValueError(f"平台 {platform} 未提供 {role} 组件类")
     import importlib
     mod = importlib.import_module(f".platforms.{platform}.{role}", package=__package__)
     cls = getattr(mod, cls_name)
     return cls(**kwargs)
+
+
+def ensure_platform_registered(platform: str):
+    """确保平台 client 已注册到 registry，若未注册则尝试动态导入"""
+    if registry.get(platform) is not None:
+        return
+    try:
+        import importlib
+        importlib.import_module(f"platforms.{platform}.client")
+    except (ImportError, ModuleNotFoundError):
+        pass
+
+
+def get_api_key(platform: str) -> str:
+    """获取指定平台的 API Key（从环境变量读取）"""
+    config = registry.get(platform)
+    if config and config.api_key_env:
+        import os
+        key = os.environ.get(config.api_key_env)
+        if key:
+            return key
+    raise ValueError(
+        f"缺少 {platform} 的 API Key，请设置环境变量: "
+        f"{config.api_key_env if config else '未知'}"
+    )
 
 
 def register_platform(

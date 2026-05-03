@@ -6,35 +6,13 @@ import asyncio
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from src import registry
-from src.platform_registry import get_platform_spec, create_component
+from src.platform_registry import get_platform_spec, create_component, ensure_platform_registered, get_api_key
 from src.models import ChatMessage
-
-
-def get_api_key(platform: str) -> str:
-    config = registry.get(platform)
-    if config and config.api_key_env:
-        key = os.environ.get(config.api_key_env)
-        if key:
-            return key
-    raise ValueError(
-        f"缺少 {platform} 的 API Key，请设置环境变量: "
-        f"{config.api_key_env if config else '未知'}"
-    )
-
-
-def _ensure_platform_registered(platform: str):
-    if registry.get(platform) is not None:
-        return
-    try:
-        import importlib
-        importlib.import_module(f"platforms.{platform}.client")
-    except (ImportError, ModuleNotFoundError):
-        pass
 
 
 async def run(platform, number=20, concurrency=5, timeout=60, sort_by="popular",
               scrape_only=False, resume=False, filter_text=True, quiet=False):
-    _ensure_platform_registered(platform)
+    ensure_platform_registered(platform)
     api_key = get_api_key(platform)
     spec = get_platform_spec(platform)
     config = registry.get(platform)

@@ -6,6 +6,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from src import registry
 from src.platform_config import PlatformConfigLoader
+from src.platform_registry import ensure_platform_registered
 
 
 def list_platforms():
@@ -26,7 +27,7 @@ def list_platforms():
 
 
 async def list_models(platform: str):
-    _ensure_platform_registered(platform)
+    ensure_platform_registered(platform)
     config = registry.get(platform)
     if not config:
         raise ValueError(f"未知平台: {platform}")
@@ -56,7 +57,7 @@ async def list_models(platform: str):
 
 
 async def scrape_only(platform: str, number: int = 20, sort_by: str = "popular", filter_text: bool = True, quiet: bool = False):
-    _ensure_platform_registered(platform)
+    ensure_platform_registered(platform)
     from src.platform_registry import get_platform_spec, create_component
     spec = get_platform_spec(platform)
     if spec is None:
@@ -88,14 +89,3 @@ async def scrape_only(platform: str, number: int = 20, sort_by: str = "popular",
         tags = ", ".join(m.tags) if m.tags else ""
         print(f"{i:<6}{m.id:<50}{tags}")
     print(f"\n共 {len(models)} 个模型")
-
-
-def _ensure_platform_registered(platform: str):
-    """确保平台 client 已注册到 registry"""
-    if registry.get(platform) is not None:
-        return
-    try:
-        import importlib
-        importlib.import_module(f"platforms.{platform}.client")
-    except (ImportError, ModuleNotFoundError):
-        pass

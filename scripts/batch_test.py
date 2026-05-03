@@ -88,7 +88,7 @@ def main():
 
     args = parser.parse_args()
 
-    from commands import single_test, batch, query
+    from commands import run_single as single_test, batch, query
 
     if args.list:
         query.list_platforms()

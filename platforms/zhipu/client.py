@@ -20,8 +20,6 @@ class ZhipuClient(BasePlatformClient):
 
     def __init__(self, api_key: str, base_url: str = "https://open.bigmodel.cn/api/paas/v4"):
         super().__init__(api_key=api_key, base_url=base_url)
-        from src.ssl_config import setup_ssl_certificates
-        setup_ssl_certificates()
 
         self._client: OpenAI = None
 

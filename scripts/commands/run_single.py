@@ -6,28 +6,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from src import registry
 from src.models import ChatMessage
-
-
-def get_api_key(platform: str) -> str:
-    config = registry.get(platform)
-    if config and config.api_key_env:
-        key = os.getenv(config.api_key_env)
-        if key:
-            return key
-    raise ValueError(f"未找到 {platform} 的 API Key，请设置环境变量")
-
-def _ensure_platform_registered(platform: str):
-    if registry.get(platform) is not None:
-        return
-    try:
-        import importlib
-        importlib.import_module(f"platforms.{platform}.client")
-    except (ImportError, ModuleNotFoundError):
-        pass
+from src.platform_registry import ensure_platform_registered, get_api_key
 
 
 def run(model_id: str, platform: str = "nvidia", message: str = "请回复'OK'", verbose: bool = True) -> dict:
-    _ensure_platform_registered(platform)
+    ensure_platform_registered(platform)
     api_key = get_api_key(platform)
     client = registry.create_client(platform, api_key=api_key)
     config = registry.get(platform)
