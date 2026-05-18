@@ -1,7 +1,6 @@
 import os
 import sys
 import asyncio
-import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -44,14 +43,13 @@ async def list_models(platform: str):
         display_name = config.display_name
         models = client.list_models()
         print(f"\n{display_name} 可用模型:")
-        print(f"{'#':<6}{'模型ID':<50}{'Owner':<18}{'Created'}")
-        print("-" * 100)
+        print(f"{'#':<6}{'模型ID':<50}{'Owner'}")
+        print("-" * 80)
         total = len(models)
         display_models = models[:50]
         for i, m in enumerate(display_models, 1):
             owner = f"[{m.api_owned_by}]" if m.api_owned_by else ""
-            created = time.strftime('%Y-%m-%d', time.gmtime(m.created_at)) if m.created_at else ""
-            print(f"{i:<6}{m.id:<50}{owner:<18}{created}")
+            print(f"{i:<6}{m.id:<50}{owner}")
         if total > 50:
             print(f"\n共 {total} 个模型（仅显示前 50 个）")
         else:
