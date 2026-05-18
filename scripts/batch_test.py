@@ -80,6 +80,8 @@ def main():
     opts.add_argument("--model-type", default="all",
                       choices=["text", "image", "all"],
                       help="模型类型过滤 (默认: all)")
+    opts.add_argument("--usecase", default=None,
+                      help="用例过滤 (如 text-generation, image-generation, embedding 等)")
 
     adv = parser.add_argument_group("高级选项")
     adv.add_argument("--resume", action="store_true",
@@ -88,6 +90,8 @@ def main():
                      help="禁用非文字模型过滤")
     adv.add_argument("--quiet", "-q", action="store_true",
                      help="安静模式，减少输出")
+    adv.add_argument("--probe-hosted", action="store_true",
+                     help="探测哪些模型真正有托管端点（发送最小 chat 请求）")
 
     args = parser.parse_args()
 
@@ -119,7 +123,12 @@ def main():
             model_type=args.model_type,
             filter_text=not args.no_filter,
             quiet=args.quiet,
+            usecase=args.usecase,
         ))
+
+    elif args.probe_hosted:
+        ConfigLoader.load_env(".env.local")
+        asyncio.run(_probe_hosted_models(args.number))
 
     elif args.platform:
         asyncio.run(batch.run(
@@ -132,12 +141,45 @@ def main():
             resume=args.resume,
             filter_text=not args.no_filter,
             quiet=args.quiet,
+            usecase=args.usecase,
         ))
 
     else:
         print("未指定参数，运行默认模式: NVIDIA 批量测试")
         print("   使用 -h 查看完整用法\n")
         asyncio.run(batch.run(platform="nvidia", number=20, concurrency=5))
+
+
+async def _probe_hosted_models(limit: int):
+    from platforms.nvidia.model_prober import NvidiaModelProber
+    from platforms.nvidia.client import NvidiaClient
+    from src.platform_registry import get_api_key
+
+    api_key = get_api_key("nvidia")
+    if not api_key:
+        print("❌ 未找到 NVIDIA API Key，请检查 .env.local")
+        return
+
+    print(f"📡 获取模型列表（前 {limit} 个）...")
+    client = NvidiaClient(api_key=api_key)
+    models = client.list_models()[:limit]
+    client.close()
+
+    print(f"🔍 开始探测 {len(models)} 个模型的可用性...")
+    prober = NvidiaModelProber(api_key=api_key)
+
+    def progress(done, total, mid, is_hosted):
+        icon = "✅" if is_hosted else "❌"
+        print(f"  [{done}/{total}] {icon} {mid}")
+
+    results = await prober.probe_batch(
+        [m.id for m in models],
+        concurrency=10,
+        progress_callback=progress,
+    )
+
+    hosted = sum(1 for v in results.values() if v[0])
+    print(f"\n📊 结果: {hosted}/{len(results)} 个模型有可用的 chat 端点")
 
 
 if __name__ == "__main__":

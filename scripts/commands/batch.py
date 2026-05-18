@@ -11,7 +11,7 @@ from src.models import ChatMessage, ModelType
 
 
 async def run(platform, number=20, concurrency=5, timeout=60, sort_by="popular",
-              model_type="all", scrape_only=False, resume=False, filter_text=True, quiet=False):
+              model_type="all", scrape_only=False, resume=False, filter_text=True, quiet=False, usecase=None):
     ensure_platform_registered(platform)
     api_key = get_api_key(platform)
     spec = get_platform_spec(platform)
@@ -28,6 +28,8 @@ async def run(platform, number=20, concurrency=5, timeout=60, sort_by="popular",
         print(f"  超时时间 : {timeout}s")
         print(f"  排序方式 : {sort_by}")
         print(f"  模型类型 : {model_type}")
+        if usecase:
+            print(f"  用例过滤 : {usecase}")
         if scrape_only:
             print(f"  模式     : 仅爬取")
         print()
@@ -41,10 +43,11 @@ async def run(platform, number=20, concurrency=5, timeout=60, sort_by="popular",
     if spec and spec.legacy_mode:
         from crawler.scraper import scrape_top_models
         models = await scrape_top_models(number, sort_by=sort_by,
-                                         model_type_filter=model_type_filter)
+                                         model_type_filter=model_type_filter,
+                                         usecase_filter=usecase)
     elif spec and spec.scraper_cls is not None:
         scraper = create_component(platform, "scraper")
-        models = await scraper.scrape(limit=number)
+        models = await scraper.scrape(limit=number, usecase_filter=usecase)
     else:
         client = registry.create_client(platform, api_key=api_key)
         all_models = client.list_models()
@@ -55,6 +58,21 @@ async def run(platform, number=20, concurrency=5, timeout=60, sort_by="popular",
         if not quiet:
             print("无法获取模型列表")
         return
+
+    # 用 API 数据丰富爬虫结果（NVIDIA 平台）
+    if api_key and models and spec and spec.legacy_mode:
+        try:
+            from platforms.nvidia.client import NvidiaClient
+            from platforms.nvidia.merger import merge_models
+            api_client = NvidiaClient(api_key=api_key)
+            api_models = api_client.list_models()
+            api_client.close()
+            models = merge_models(models, api_models)
+            if not quiet:
+                print(f"📡 API 数据合并完成: {len(models)} 个模型")
+        except Exception as e:
+            if not quiet:
+                print(f"⚠️ API 数据合并失败: {e}")
 
     if not quiet:
         print(f"获取到 {len(models)} 个模型")

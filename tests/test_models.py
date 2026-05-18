@@ -35,6 +35,9 @@ def test_model_info_defaults():
     assert m.max_tokens == 4096
     assert m.context_window == 128000
     assert m.description == ""
+    assert m.created_at is None
+    assert m.api_owned_by is None
+    assert m.is_hosted is None
 
 
 def test_model_info_status_icon():
@@ -113,6 +116,9 @@ def test_test_result_defaults():
     assert r.tags is None
     assert r.reasoning_content == ""
     assert r.token_usage == 0
+    assert r.created_at is None
+    assert r.api_owned_by is None
+    assert r.is_hosted is None
 
 
 def test_test_result_to_dict():
@@ -139,6 +145,30 @@ def test_test_result_to_dict():
     assert d["is_free_endpoint"] is True
     assert d["tags"] == ["free"]
     assert d["token_usage"] == 42
+
+
+def test_model_info_to_dict_includes_api_fields():
+    m = ModelInfo(
+        id="meta/llama-3.3",
+        name="llama-3.3",
+        vendor="meta",
+        created_at=1724000000,
+        api_owned_by="meta",
+    )
+    d = m.to_dict()
+    assert d["created_at"] == 1724000000
+    assert d["api_owned_by"] == "meta"
+
+
+def test_test_result_to_dict_includes_api_fields():
+    r = TestResult(
+        model_id="meta/llama-3.3",
+        created_at=1724000000,
+        api_owned_by="meta",
+    )
+    d = r.to_dict()
+    assert d["created_at"] == 1724000000
+    assert d["api_owned_by"] == "meta"
 
 
 def test_test_result_to_dict_truncation():
@@ -266,8 +296,11 @@ def test_model_info_is_callable_testing():
 def test_model_type_enum_values():
     assert ModelType.TEXT.value == "text"
     assert ModelType.IMAGE_GENERATION.value == "image_generation"
+    assert ModelType.IMAGE_EDITING.value == "image_editing"
     assert ModelType.EMBEDDING.value == "embedding"
-    assert len(ModelType) == 3
+    assert ModelType.MULTIMODAL.value == "multimodal"
+    assert ModelType.SPEECH.value == "speech"
+    assert len(ModelType) == 6
 
 
 def test_model_type_is_string_enum():

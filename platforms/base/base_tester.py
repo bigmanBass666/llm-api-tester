@@ -4,7 +4,7 @@
 """
 
 import time
-from typing import List, Optional
+from typing import List, Optional, Dict, Callable
 import asyncio
 import httpx
 from openai import OpenAI
@@ -26,25 +26,53 @@ class BaseTester:
     api_key: str = ""
     base_url: str = ""
 
+    UNSUPPORTED_MODEL_TYPES = {ModelType.EMBEDDING, ModelType.SPEECH}
+
+    _TYPE_HANDLERS: Dict[ModelType, str] = {
+        ModelType.TEXT: "test_text_model",
+        ModelType.IMAGE_GENERATION: "test_image_model",
+        ModelType.IMAGE_EDITING: "test_image_model",
+        ModelType.MULTIMODAL: "test_text_model",
+    }
+
+    def _model_to_result_kwargs(self, model: ModelInfo) -> dict:
+        return {
+            "model_id": model.id,
+            "model_type": model.model_type.value,
+            "rank": model.rank,
+            "is_downloadable": model.is_downloadable,
+            "is_free_endpoint": model.is_free_endpoint,
+            "tags": model.tags,
+            "call_volume": model.call_volume,
+            "published_at": model.published_at,
+            "deprecation_info": model.deprecation_info,
+            "endpoint_type": model.endpoint_type,
+            "inference_provider": model.inference_provider,
+            "created_at": model.created_at,
+            "api_owned_by": model.api_owned_by,
+            "is_hosted": model.is_hosted,
+        }
+
     async def test_single(self, model: ModelInfo, timeout: int = 60) -> TestResult:
-        if model.model_type == ModelType.TEXT:
-            return await self.test_text_model(model, timeout)
-        elif model.model_type == ModelType.IMAGE_GENERATION:
-            return await self.test_image_model(model, timeout)
-        else:
+        if model.model_type in self.UNSUPPORTED_MODEL_TYPES:
             return TestResult(
-                model_id=model.id,
-                model_type=model.model_type.value,
-                rank=model.rank,
-                status="failed",
+                **self._model_to_result_kwargs(model),
+                status="skipped",
                 response_time=0.0,
-                error_message=f"Unsupported model type: {model.model_type.value}",
-                is_downloadable=model.is_downloadable,
-                is_free_endpoint=model.is_free_endpoint,
-                tags=model.tags,
-                call_volume=model.call_volume,
-                published_at=model.published_at,
+                error_message=f"{model.model_type.value} model - test not supported",
             )
+
+        handler_name = self._TYPE_HANDLERS.get(model.model_type)
+        if handler_name:
+            handler = getattr(self, handler_name)
+            return await handler(model, timeout)
+
+        return TestResult(
+            **self._model_to_result_kwargs(model),
+            status="failed",
+            response_time=0.0,
+            error_message=f"Unsupported model type: {model.model_type.value}",
+        )
 
     async def test_text_model(self, model: ModelInfo, timeout: int = 60) -> TestResult:
         start_time = time.time()
@@ -68,17 +96,10 @@ class BaseTester:
             client.close()
 
             return TestResult(
-                model_id=model.id,
-                model_type=model.model_type.value,
-                rank=model.rank,
+                **self._model_to_result_kwargs(model),
                 status="success",
                 response_time=round(elapsed, 2),
                 response_preview=content[:100],
-                is_downloadable=model.is_downloadable,
-                is_free_endpoint=model.is_free_endpoint,
-                tags=model.tags,
-                call_volume=model.call_volume,
-                published_at=model.published_at,
             )
 
         except Exception as e:
@@ -91,17 +112,10 @@ class BaseTester:
                 status = "failed"
 
             return TestResult(
-                model_id=model.id,
-                model_type=model.model_type.value,
-                rank=model.rank,
+                **self._model_to_result_kwargs(model),
                 status=status,
                 response_time=round(elapsed, 2),
                 error_message=error_msg[:200],
-                is_downloadable=model.is_downloadable,
-                is_free_endpoint=model.is_free_endpoint,
-                tags=model.tags,
-                call_volume=model.call_volume,
-                published_at=model.published_at,
             )
 
     async def test_image_model(self, model: ModelInfo, timeout: int = 60) -> TestResult:
@@ -135,31 +149,17 @@ class BaseTester:
                     parts.append(f"decode={decode:.2f}s")
                 preview = ", ".join(parts) + "]"
                 return TestResult(
-                    model_id=model.id,
-                    model_type=model.model_type.value,
-                    rank=model.rank,
+                    **self._model_to_result_kwargs(model),
                     status="success",
                     response_time=round(elapsed, 2),
                     response_preview=preview,
-                    is_downloadable=model.is_downloadable,
-                    is_free_endpoint=model.is_free_endpoint,
-                    tags=model.tags,
-                    call_volume=model.call_volume,
-                    published_at=model.published_at,
                 )
             else:
                 return TestResult(
-                    model_id=model.id,
-                    model_type=model.model_type.value,
-                    rank=model.rank,
+                    **self._model_to_result_kwargs(model),
                     status="failed",
                     response_time=round(elapsed, 2),
                     error_message="Image generation returned failure",
-                    is_downloadable=model.is_downloadable,
-                    is_free_endpoint=model.is_free_endpoint,
-                    tags=model.tags,
-                    call_volume=model.call_volume,
-                    published_at=model.published_at,
                 )
 
         except Exception as e:
@@ -172,31 +172,15 @@ class BaseTester:
                 status = "failed"
 
             return TestResult(
-                model_id=model.id,
-                model_type=model.model_type.value,
-                rank=model.rank,
+                **self._model_to_result_kwargs(model),
                 status=status,
                 response_time=round(elapsed, 2),
                 error_message=error_msg[:200],
-                is_downloadable=model.is_downloadable,
-                is_free_endpoint=model.is_free_endpoint,
-                tags=model.tags,
-                call_volume=model.call_volume,
-                published_at=model.published_at,
             )
 
     async def batch_test(self, models: List[ModelInfo],
                         concurrency: int = 3,
                         timeout: int = 60) -> List[TestResult]:
-        """
-        批量测试模型
-        Args:
-            models: 模型列表
-            concurrency: 并发数
-            timeout: 单个模型超时时间
-        Returns:
-            测试结果列表
-        """
         results = []
         semaphore = asyncio.Semaphore(concurrency)
 
@@ -218,7 +202,6 @@ class BaseTester:
         return valid_results
 
     def log_progress(self, current: int, result: TestResult):
-        """输出进度日志"""
         model_id = result.model_id
         status = result.status
         response_time = result.response_time

@@ -25,7 +25,10 @@ class ReasoningEffort(str, Enum):
 class ModelType(str, Enum):
     TEXT = "text"
     IMAGE_GENERATION = "image_generation"
+    IMAGE_EDITING = "image_editing"
     EMBEDDING = "embedding"
+    MULTIMODAL = "multimodal"
+    SPEECH = "speech"
 
 
 @dataclass
@@ -65,6 +68,17 @@ class ModelInfo:
     href: str = ""
     call_volume: str = ""
     published_at: Optional[str] = None
+    deprecation_info: Optional[str] = None
+    endpoint_type: str = "unknown"
+    inference_provider: Optional[str] = None
+    created_at: Optional[int] = None       # /v1/models API Unix 时间戳
+    api_owned_by: Optional[str] = None     # /v1/models API owned_by
+    is_hosted: Optional[bool] = None       # True=chat端点可用, False=不可用, None=未探测
+
+    # 注意: 以下字段与 TestResult 共享，修改时需同步更新两处
+    # 共享字段: model_type, rank, is_downloadable, is_free_endpoint, tags,
+    #           call_volume, published_at, deprecation_info, endpoint_type,
+    #           inference_provider, created_at, api_owned_by, is_hosted
 
     @property
     def status_icon(self) -> str:
@@ -98,6 +112,11 @@ class ModelInfo:
             "is_callable": self.is_callable,
             "call_volume": self.call_volume,
             "published_at": self.published_at,
+            "deprecation_info": self.deprecation_info,
+            "endpoint_type": self.endpoint_type,
+            "inference_provider": self.inference_provider,
+            "created_at": self.created_at,
+            "api_owned_by": self.api_owned_by,
             "error": self.error_message[:200] if self.error_message else "",
         }
 
@@ -119,6 +138,12 @@ class TestResult:
     token_usage: int = 0
     call_volume: str = ""
     published_at: Optional[str] = None
+    deprecation_info: Optional[str] = None
+    endpoint_type: str = "unknown"
+    inference_provider: Optional[str] = None
+    created_at: Optional[int] = None
+    api_owned_by: Optional[str] = None
+    is_hosted: Optional[bool] = None
 
     def to_dict(self) -> dict:
         return {
@@ -135,6 +160,11 @@ class TestResult:
             "token_usage": self.token_usage,
             "call_volume": self.call_volume,
             "published_at": self.published_at,
+            "deprecation_info": self.deprecation_info,
+            "endpoint_type": self.endpoint_type,
+            "inference_provider": self.inference_provider,
+            "created_at": self.created_at,
+            "api_owned_by": self.api_owned_by,
         }
 
 

@@ -182,19 +182,87 @@ class NvidiaClient(BasePlatformClient):
         }
 
     def list_models(self) -> List[ModelInfo]:
+        # 优先使用 raw HTTP 获取完整字段
+        try:
+            raw_models = self._list_models_raw()
+            return [self._raw_model_to_info(m) for m in raw_models]
+        except Exception:
+            pass
+
+        # 回退到 SDK
         models = self.client.models.list()
-        return [
-            ModelInfo(
-                id=m.id,
-                name=m.id,
-                vendor="nvidia",
-                is_free_endpoint=True,
-                max_tokens=4096,
-                context_window=128000,
-                description=""
-            )
-            for m in models.data
-        ]
+        return [self._sdk_model_to_info(m) for m in models.data]
+
+    def _list_models_raw(self) -> List[dict]:
+        """通过 raw HTTP 获取 /v1/models JSON，访问 SDK 不暴露的字段"""
+        import httpx as _httpx
+        url = f"{self.base_url}/models"
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+        with _httpx.Client(verify=True, timeout=30) as client:
+            resp = client.get(url, headers=headers)
+            resp.raise_for_status()
+            return resp.json().get("data", [])
+
+    def _build_model_info(self, model_id: str, owned_by: str = None,
+                          created: int = None, tags: list = None) -> 'ModelInfo':
+        """统一的 ModelInfo 构建逻辑"""
+        from platforms.common.utils import parse_model_id
+        from src.models import ModelType
+        id_vendor, short_name = parse_model_id(model_id)
+        model_type = self._classify_by_id(model_id)
+
+        return ModelInfo(
+            id=model_id,
+            name=short_name,
+            vendor=owned_by or id_vendor,
+            model_type=model_type,
+            is_free_endpoint=True,
+            max_tokens=4096,
+            context_window=128000,
+            description="",
+            created_at=created,
+            api_owned_by=owned_by,
+            tags=tags or None,
+        )
+
+    @classmethod
+    def _classify_by_id(cls, model_id: str) -> 'ModelType':
+        from src.models import ModelType
+        from src.platform_config import PlatformConfigLoader
+
+        scraper_config = PlatformConfigLoader.get_scraper_config("nvidia")
+        mid = model_id.lower()
+
+        for kw in scraper_config.image_model_keywords:
+            if kw in mid:
+                return ModelType.IMAGE_GENERATION
+        for kw in scraper_config.multimodal_keywords:
+            if kw in mid:
+                return ModelType.MULTIMODAL
+        for kw in scraper_config.speech_keywords:
+            if kw in mid:
+                return ModelType.SPEECH
+        return ModelType.TEXT
+
+    def _raw_model_to_info(self, raw: dict) -> 'ModelInfo':
+        model_id = raw.get("id", "")
+        tags = []
+        root = raw.get("root")
+        if root and root != model_id:
+            tags.append("fine-tuned")
+        return self._build_model_info(
+            model_id,
+            owned_by=raw.get("owned_by"),
+            created=raw.get("created"),
+            tags=tags or None,
+        )
+
+    def _sdk_model_to_info(self, m) -> 'ModelInfo':
+        return self._build_model_info(
+            m.id,
+            owned_by=getattr(m, 'owned_by', None),
+            created=m.created,
+        )
 
     def test_connection(self) -> bool:
         try:

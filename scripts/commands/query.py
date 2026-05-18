@@ -1,6 +1,7 @@
 import os
 import sys
 import asyncio
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -43,12 +44,14 @@ async def list_models(platform: str):
         display_name = config.display_name
         models = client.list_models()
         print(f"\n{display_name} 可用模型:")
-        print(f"{'#':<6}{'模型ID':<50}{'名称'}")
-        print("-" * 90)
+        print(f"{'#':<6}{'模型ID':<50}{'Owner':<18}{'Created'}")
+        print("-" * 100)
         total = len(models)
         display_models = models[:50]
         for i, m in enumerate(display_models, 1):
-            print(f"{i:<6}{m.id:<50}{m.name}")
+            owner = f"[{m.api_owned_by}]" if m.api_owned_by else ""
+            created = time.strftime('%Y-%m-%d', time.gmtime(m.created_at)) if m.created_at else ""
+            print(f"{i:<6}{m.id:<50}{owner:<18}{created}")
         if total > 50:
             print(f"\n共 {total} 个模型（仅显示前 50 个）")
         else:
@@ -57,7 +60,7 @@ async def list_models(platform: str):
         client.close()
 
 
-async def scrape_only(platform: str, number: int = 20, sort_by: str = "popular", model_type: str = "all", filter_text: bool = True, quiet: bool = False):
+async def scrape_only(platform: str, number: int = 20, sort_by: str = "popular", model_type: str = "all", filter_text: bool = True, quiet: bool = False, usecase: str = None):
     ensure_platform_registered(platform)
     from src.platform_registry import get_platform_spec, create_component
     spec = get_platform_spec(platform)
@@ -70,10 +73,10 @@ async def scrape_only(platform: str, number: int = 20, sort_by: str = "popular",
 
     if spec and spec.legacy_mode:
         from crawler.scraper import scrape_top_models
-        models = await scrape_top_models(limit=number, sort_by=sort_by, model_type_filter=model_type_filter)
+        models = await scrape_top_models(limit=number, sort_by=sort_by, model_type_filter=model_type_filter, usecase_filter=usecase)
     elif spec and spec.scraper_cls:
         scraper = create_component(platform, "scraper")
-        models = await scraper.scrape(limit=number)
+        models = await scraper.scrape(limit=number, usecase_filter=usecase)
     else:
         config = registry.get(platform)
         api_key_env = config.api_key_env

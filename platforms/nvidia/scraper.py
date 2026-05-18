@@ -58,8 +58,13 @@ class NvidiaScraper(BaseScraper):
         self.NON_TEXT_KEYWORDS = config.non_text_keywords
         self.IMAGE_MODEL_CATEGORIES = config.image_model_categories
         self.IMAGE_MODEL_KEYWORDS = config.image_model_keywords
+        self.MULTIMODAL_CATEGORIES = config.multimodal_categories
+        self.MULTIMODAL_KEYWORDS = config.multimodal_keywords
+        self.SPEECH_CATEGORIES = config.speech_categories
+        self.SPEECH_KEYWORDS = config.speech_keywords
+        self.USECASE_FILTERS = config.usecase_filters
 
-    async def scrape(self, limit: int = 50, sort_by: str = "popular", sort_order: str = "DESC") -> List[ModelInfo]:
+    async def scrape(self, limit: int = 50, sort_by: str = "popular", sort_order: str = "DESC", usecase_filter: Optional[str] = None) -> List[ModelInfo]:
         """
         爬取模型列表（多页翻页 + 支持多种排序）
 
@@ -67,6 +72,7 @@ class NvidiaScraper(BaseScraper):
             limit: 目标模型数量
             sort_by: 排序方式，'popular'(热度) 或 'recent'(最新)
             sort_order: 排序方向，'ASC' 或 'DESC'
+            usecase_filter: 用例过滤，如 'text-generation', 'image-generation' 等
 
         Returns:
             ModelInfo 列表
@@ -80,6 +86,12 @@ class NvidiaScraper(BaseScraper):
         else:
             base_url = f"{self._CONFIG['base_url']}/models?pageSize={self._CONFIG['page_size']}"
             sort_name = "最新"
+
+        if usecase_filter:
+            filter_param = self.USECASE_FILTERS.get(usecase_filter, usecase_filter)
+            encoded_filter = filter_param.replace(":", "%3A")
+            base_url += f"&filters={encoded_filter}"
+            sort_name += f" + 过滤:{filter_param}"
 
         print(f"🔍 NVIDIA: 开始获取模型列表 (目标: {limit} 个, 排序: {sort_name})")
 
@@ -114,10 +126,18 @@ class NvidiaScraper(BaseScraper):
 
                 for model in page_models:
                     # 映射到 API ID
+                    from platforms.common.utils import parse_model_id
                     full_id = self._find_matching_model_id(model.id, api_model_map)
                     model.id = full_id
-                    model.name = full_id.split("/")[-1] if "/" in full_id else full_id
-                    model.vendor = full_id.split("/")[0] if "/" in full_id else "unknown"
+                    id_vendor, short_name = parse_model_id(full_id)
+                    model.name = short_name
+                    model.vendor = id_vendor
+
+                    # 用 API 元数据丰富模型信息
+                    meta = api_model_map.get(f"__meta__:{full_id}")
+                    if meta:
+                        model.created_at = meta.get("created")
+                        model.api_owned_by = meta.get("owned_by")
 
                     # 去重
                     if model.id in existing_ids:
@@ -273,6 +293,40 @@ class NvidiaScraper(BaseScraper):
                     except Exception:
                         pass
 
+                    # 提取端点类型（Free/Partner Endpoint）
+                    endpoint_type = "unknown"
+                    try:
+                        badge_elements = await card.query_selector_all(self.SELECTORS.get('badge', "[data-testid='nv-badge']"))
+                        for badge in badge_elements:
+                            try:
+                                badge_text = await badge.text_content()
+                                if badge_text:
+                                    badge_lower = badge_text.strip().lower()
+                                    if 'partner' in badge_lower or 'enterprise' in badge_lower:
+                                        endpoint_type = "partner"
+                                    elif 'free' in badge_lower:
+                                        endpoint_type = "free"
+                            except Exception:
+                                continue
+                        if endpoint_type == "unknown":
+                            if free_endpoint:
+                                endpoint_type = "free"
+                            else:
+                                endpoint_type = "partner"
+                    except Exception:
+                        pass
+
+                    # 提取弃用警告（从卡片文本中匹配 "Deprecation in" 模式）
+                    deprecation_info = None
+                    try:
+                        full_text_depr = await card.inner_text()
+                        import re
+                        depr_match = re.search(r'Deprecation\s+in\s+\w+\s+\d{4}', full_text_depr, re.IGNORECASE)
+                        if depr_match:
+                            deprecation_info = depr_match.group(0)
+                    except Exception:
+                        pass
+
                     # 确定最终模型 ID
                     final_id = full_model_id if full_model_id else model_name
 
@@ -294,6 +348,8 @@ class NvidiaScraper(BaseScraper):
                         category=category,
                         call_volume=call_volume,
                         published_at=published_at,
+                        deprecation_info=deprecation_info,
+                        endpoint_type=endpoint_type,
                     )
                     models.append(model)
 
@@ -351,9 +407,14 @@ class NvidiaScraper(BaseScraper):
                         for m in data.get("data", []):
                             full_id = m.get("id", "")
                             if full_id:
-                                short_name = full_id.split("/")[-1] if "/" in full_id else full_id
+                                from platforms.common.utils import parse_model_id
+                                _, short_name = parse_model_id(full_id)
                                 model_map[short_name] = full_id
                                 model_map[full_id] = full_id
+                                model_map[f"__meta__:{full_id}"] = {
+                                    "created": m.get("created"),
+                                    "owned_by": m.get("owned_by"),
+                                }
 
                         print(f"✅ API 映射表: {len(model_map)} 个模型", flush=True)
                         return model_map
@@ -379,14 +440,26 @@ class NvidiaScraper(BaseScraper):
         if category:
             if category in self.IMAGE_MODEL_CATEGORIES:
                 return ModelType.IMAGE_GENERATION
+            if category in self.MULTIMODAL_CATEGORIES:
+                return ModelType.MULTIMODAL
+            if category in self.SPEECH_CATEGORIES:
+                return ModelType.SPEECH
             if category in self.TEXT_MODEL_CATEGORIES:
                 return ModelType.TEXT
-            if any(kw in category for kw in ['embedding', 'extraction', 'speech', 'asr', 'tts', 'vision-language']):
+            if any(kw in category for kw in ['embedding', 'extraction']):
                 return ModelType.EMBEDDING
+            if any(kw in category for kw in ['image-editing', 'image editing']):
+                return ModelType.IMAGE_EDITING
         model_id_lower = model_id.lower()
         for keyword in self.IMAGE_MODEL_KEYWORDS:
             if keyword in model_id_lower:
                 return ModelType.IMAGE_GENERATION
+        for keyword in self.MULTIMODAL_KEYWORDS:
+            if keyword in model_id_lower:
+                return ModelType.MULTIMODAL
+        for keyword in self.SPEECH_KEYWORDS:
+            if keyword in model_id_lower:
+                return ModelType.SPEECH
         for keyword in self.NON_TEXT_KEYWORDS:
             if keyword in model_id_lower:
                 return ModelType.EMBEDDING
@@ -535,19 +608,20 @@ class NvidiaScraper(BaseScraper):
         return short_name
 
 
-async def scrape_top_models(limit: int = 50, sort_by: str = "popular", model_type_filter: Optional['ModelType'] = None) -> List[ModelInfo]:
+async def scrape_top_models(limit: int = 50, sort_by: str = "popular", model_type_filter: Optional['ModelType'] = None, usecase_filter: Optional[str] = None) -> List[ModelInfo]:
     """爬取前N个热门模型（便捷函数）
 
     Args:
         limit: 爬取的模型数量
         sort_by: 排序方式，'popular' 或 'recent'
         model_type_filter: 模型类型过滤（None=全部, ModelType.TEXT=仅文本, ModelType.IMAGE_GENERATION=仅文生图）
+        usecase_filter: 用例过滤，如 'text-generation', 'image-generation' 等
 
     Returns:
         ModelInfo 列表
     """
     scraper = NvidiaScraper(headless=True, model_type_filter=model_type_filter)
     try:
-        return await scraper.scrape(limit=limit, sort_by=sort_by)
+        return await scraper.scrape(limit=limit, sort_by=sort_by, usecase_filter=usecase_filter)
     finally:
         await scraper.close()
