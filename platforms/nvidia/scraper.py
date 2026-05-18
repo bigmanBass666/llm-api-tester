@@ -113,7 +113,7 @@ class NvidiaScraper(BaseScraper):
             while len(all_models) < limit and current_page <= max_pages:
                 print(f"\n📄 正在爬取第 {current_page} 页...", flush=True)
 
-                page_models = await self._extract_models()
+                page_models = await self._extract_models(api_model_map)
 
                 if not page_models:
                     print(f"⚠️ 第 {current_page} 页无模型，停止", flush=True)
@@ -185,7 +185,7 @@ class NvidiaScraper(BaseScraper):
             await self.close()
             raise
 
-    async def _extract_models(self) -> List[ModelInfo]:
+    async def _extract_models(self, api_model_map: Dict = None) -> List[ModelInfo]:
         """
         从页面提取模型数据
 
@@ -353,6 +353,7 @@ class NvidiaScraper(BaseScraper):
                         published_at=published_at,
                         deprecation_info=deprecation_info,
                         endpoint_type=endpoint_type,
+                        is_hosted=final_id in api_model_map if api_model_map else None,
                     )
                     models.append(model)
 
@@ -361,7 +362,8 @@ class NvidiaScraper(BaseScraper):
                         tag_str = ", ".join(tags) if tags else "无"
                         cv_str = f" | 📞{call_volume}" if call_volume else ""
                         pub_str = f" | 📅{published_at}" if published_at else ""
-                        print(f"  #{i}: {final_id} [{tag_str}]{cv_str}{pub_str}", flush=True)
+                        api_str = " | 🌐API" if model.is_hosted else " | ❌no-API"
+                        print(f"  #{i}: {final_id} [{tag_str}]{cv_str}{pub_str}{api_str}", flush=True)
 
                 except Exception as e:
                     print(f"  ⚠️ 解析卡片 {i} 失败: {e}", flush=True)
