@@ -28,6 +28,11 @@ class ScraperConfig:
     non_text_keywords: List[str] = field(default_factory=list)
     image_model_categories: Set[str] = field(default_factory=set)
     image_model_keywords: List[str] = field(default_factory=list)
+    multimodal_categories: Set[str] = field(default_factory=set)
+    multimodal_keywords: List[str] = field(default_factory=list)
+    speech_categories: Set[str] = field(default_factory=set)
+    speech_keywords: List[str] = field(default_factory=list)
+    usecase_filters: Dict[str, str] = field(default_factory=dict)
     known_models: List[Dict[str, object]] = field(default_factory=list)
 
 
@@ -134,6 +139,11 @@ class PlatformConfigLoader:
                 non_text_keywords=scraper_data.get('non_text_keywords', []),
                 image_model_categories=set(scraper_data.get('image_model_categories', [])),
                 image_model_keywords=scraper_data.get('image_model_keywords', []),
+                multimodal_categories=set(scraper_data.get('multimodal_categories', [])),
+                multimodal_keywords=scraper_data.get('multimodal_keywords', []),
+                speech_categories=set(scraper_data.get('speech_categories', [])),
+                speech_keywords=scraper_data.get('speech_keywords', []),
+                usecase_filters=scraper_data.get('usecase_filters', {}),
                 known_models=scraper_data.get('known_models', []),
             )
 

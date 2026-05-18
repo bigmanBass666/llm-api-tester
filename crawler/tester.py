@@ -8,7 +8,7 @@ import asyncio
 import httpx
 from typing import List, Optional
 
-from .models import ModelInfo, ModelStore, is_reasoning_model, get_reasoning_effort
+from .models import ModelInfo, is_reasoning_model, get_reasoning_effort
 from .logger import ModelTestLogger
 from .errors import APIError, AuthenticationError, RateLimitError, ModelNotFoundError, TimeoutError as APITimeoutError, ServerError
 
@@ -43,17 +43,52 @@ class ModelTester:
             http_client=self._http_client,
         )
 
+    def _handle_test_error(self, model: ModelInfo, error: Exception, start_time: float, is_reasoning: bool = False) -> ModelInfo:
+        elapsed = time.time() - start_time
+
+        if isinstance(error, (asyncio.TimeoutError, APITimeoutError)):
+            model.test_status = "timeout"
+            model.error_message = str(error)[:500] if isinstance(error, APITimeoutError) else "请求超时: 服务器响应时间过长"
+        elif isinstance(error, AuthenticationError):
+            model.test_status = "failed"
+            model.error_message = "认证失败: 请检查API Key是否正确"
+        elif isinstance(error, RateLimitError):
+            model.test_status = "failed"
+            model.error_message = "请求频率超限: 请稍后重试"
+        elif isinstance(error, ModelNotFoundError):
+            model.test_status = "failed"
+            model.error_message = f"模型不存在: {error.message}"
+        elif isinstance(error, ServerError):
+            model.test_status = "failed"
+            model.error_message = f"服务器错误({error.status_code}): {error.message}"
+        elif isinstance(error, APIError):
+            model.test_status = "failed"
+            model.error_message = f"API错误: {error.message}"
+        else:
+            model.test_status = "failed"
+            model.error_message = str(error)[:500]
+
+        model.response_time = elapsed
+        model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
+        model.is_reasoning = is_reasoning
+
+        if self.logger:
+            log_method = self.logger.log_test_timeout if model.test_status == "timeout" else self.logger.log_test_error
+            if model.test_status == "timeout":
+                log_method(model.id, int(elapsed))
+            else:
+                log_method(model.id, type(error).__name__, model.error_message[:200])
+            self.logger.mark_tested(model.id)
+        else:
+            icon = "⏰" if model.test_status == "timeout" else "❌"
+            detail = "timeout" if model.test_status == "timeout" else f"{type(error).__name__}: {str(error)[:100]}"
+            print(f"{icon} #{model.rank} {model.id} - {elapsed:.2f}s - {detail}")
+
+        return model
+
     async def test_single_model(self, model: ModelInfo, timeout: int = 60,
                          force_reasoning: bool = False,
                          force_normal: bool = False) -> ModelInfo:
-        """测试单个模型
-
-        Args:
-            model: 模型信息
-            timeout: 超时时间（秒）
-            force_reasoning: 强制使用推理模式测试
-            force_normal: 强制使用普通模式测试
-        """
         if self.logger and self.logger.is_tested(model.id):
             self.logger.log('INFO', 'skip', model_id=model.id, reason='already_tested')
             print(f"⏭️  跳过 #{model.rank} {model.id}（已完成）")
@@ -67,7 +102,6 @@ class ModelTester:
         model.test_status = "testing"
         start_time = time.time()
 
-        # 判断是否为推理模型
         use_reasoning_mode = force_reasoning or (not force_normal and is_reasoning_model(model.id))
 
         if use_reasoning_mode:
@@ -77,9 +111,6 @@ class ModelTester:
             return await self._test_normal_model(model, timeout)
 
     async def _test_reasoning_model(self, model: ModelInfo, timeout: int = 120) -> ModelInfo:
-        """测试推理模型（使用流式输出）"""
-        from .models import get_reasoning_effort
-
         reasoning_effort = get_reasoning_effort(model.id)
         extra_body = {
             "chat_template_kwargs": {
@@ -88,8 +119,9 @@ class ModelTester:
             }
         }
 
+        start_time = time.time()
+
         try:
-            start_time = time.time()
             client = await self._get_openai_client()
 
             response = await client.chat.completions.create(
@@ -123,7 +155,7 @@ class ModelTester:
 
             model.test_status = "success"
             model.response_time = elapsed
-            model.token_usage = 0  # 流式响应可能没有 usage
+            model.token_usage = 0
             model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
             model.is_reasoning = True
             model.reasoning_effort = reasoning_effort
@@ -137,141 +169,10 @@ class ModelTester:
 
             return model
 
-        except asyncio.TimeoutError:
-            elapsed = time.time() - start_time
-            model.test_status = "timeout"
-            model.response_time = elapsed
-            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
-            model.is_reasoning = True
-
-            if self.logger:
-                self.logger.log_test_timeout(model.id, timeout)
-                self.logger.mark_tested(model.id)
-            else:
-                print(f"⏰ #{model.rank} {model.id} - {elapsed:.2f}s - timeout")
-
-            return model
-
-        except AuthenticationError:
-            elapsed = time.time() - start_time
-            model.test_status = "failed"
-            model.response_time = elapsed
-            error_msg = f"认证失败: 请检查API Key是否正确"
-            model.error_message = error_msg
-            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
-            model.is_reasoning = True
-
-            if self.logger:
-                self.logger.log_test_error(model.id, "AuthenticationError", error_msg[:200])
-                self.logger.mark_tested(model.id)
-            else:
-                print(f"❌ #{model.rank} {model.id} - {elapsed:.2f}s - 认证失败")
-
-            return model
-
-        except RateLimitError:
-            elapsed = time.time() - start_time
-            model.test_status = "failed"
-            model.response_time = elapsed
-            error_msg = f"请求频率超限: 请稍后重试"
-            model.error_message = error_msg
-            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
-            model.is_reasoning = True
-
-            if self.logger:
-                self.logger.log_test_error(model.id, "RateLimitError", error_msg[:200])
-                self.logger.mark_tested(model.id)
-            else:
-                print(f"❌ #{model.rank} {model.id} - {elapsed:.2f}s - 请求频率超限")
-
-            return model
-
-        except ModelNotFoundError as e:
-            elapsed = time.time() - start_time
-            model.test_status = "failed"
-            model.response_time = elapsed
-            error_msg = f"模型不存在: {e.message}"
-            model.error_message = error_msg
-            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
-            model.is_reasoning = True
-
-            if self.logger:
-                self.logger.log_test_error(model.id, "ModelNotFoundError", error_msg[:200])
-                self.logger.mark_tested(model.id)
-            else:
-                print(f"❌ #{model.rank} {model.id} - {elapsed:.2f}s - 模型不存在")
-
-            return model
-
-        except APITimeoutError:
-            elapsed = time.time() - start_time
-            model.test_status = "timeout"
-            model.response_time = elapsed
-            error_msg = f"请求超时: 服务器响应时间过长"
-            model.error_message = error_msg
-            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
-            model.is_reasoning = True
-
-            if self.logger:
-                self.logger.log_test_timeout(model.id, 120)
-                self.logger.mark_tested(model.id)
-            else:
-                print(f"⏰ #{model.rank} {model.id} - {elapsed:.2f}s - API超时")
-
-            return model
-
-        except ServerError as e:
-            elapsed = time.time() - start_time
-            model.test_status = "failed"
-            model.response_time = elapsed
-            error_msg = f"服务器错误({e.status_code}): {e.message}"
-            model.error_message = error_msg
-            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
-            model.is_reasoning = True
-
-            if self.logger:
-                self.logger.log_test_error(model.id, "ServerError", error_msg[:200])
-                self.logger.mark_tested(model.id)
-            else:
-                print(f"❌ #{model.rank} {model.id} - {elapsed:.2f}s - 服务器错误({e.status_code})")
-
-            return model
-
-        except APIError as e:
-            elapsed = time.time() - start_time
-            model.test_status = "failed"
-            model.response_time = elapsed
-            error_msg = f"API错误: {e.message}"
-            model.error_message = error_msg
-            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
-            model.is_reasoning = True
-
-            if self.logger:
-                self.logger.log_test_error(model.id, "APIError", error_msg[:200])
-                self.logger.mark_tested(model.id)
-            else:
-                print(f"❌ #{model.rank} {model.id} - {elapsed:.2f}s - API错误: {e.message[:100]}")
-
-            return model
-
         except Exception as e:
-            elapsed = time.time() - start_time
-            model.test_status = "failed"
-            model.response_time = elapsed
-            model.error_message = str(e)[:500]
-            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
-            model.is_reasoning = True
-
-            if self.logger:
-                self.logger.log_test_error(model.id, type(e).__name__, str(e)[:200])
-                self.logger.mark_tested(model.id)
-            else:
-                print(f"❌ #{model.rank} {model.id} - {elapsed:.2f}s - {type(e).__name__}: {str(e)[:100]}")
-
-            return model
+            return self._handle_test_error(model, e, start_time, is_reasoning=True)
 
     async def _test_normal_model(self, model: ModelInfo, timeout: int = 60) -> ModelInfo:
-        """测试普通模型（非推理模型）"""
         start_time = time.time()
 
         try:
@@ -299,135 +200,12 @@ class ModelTester:
 
             return model
 
-        except asyncio.TimeoutError:
-            elapsed = time.time() - start_time
-            model.test_status = "timeout"
-            model.response_time = elapsed
-            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
-
-            if self.logger:
-                self.logger.log_test_timeout(model.id, timeout)
-                self.logger.mark_tested(model.id)
-            else:
-                print(f"⏰ #{model.rank} {model.id} - {elapsed:.2f}s - timeout")
-
-            return model
-
-        except AuthenticationError:
-            elapsed = time.time() - start_time
-            model.test_status = "failed"
-            model.response_time = elapsed
-            error_msg = f"认证失败: 请检查API Key是否正确"
-            model.error_message = error_msg
-            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
-
-            if self.logger:
-                self.logger.log_test_error(model.id, "AuthenticationError", error_msg[:200])
-                self.logger.mark_tested(model.id)
-            else:
-                print(f"❌ #{model.rank} {model.id} - {elapsed:.2f}s - 认证失败")
-
-            return model
-
-        except RateLimitError:
-            elapsed = time.time() - start_time
-            model.test_status = "failed"
-            model.response_time = elapsed
-            error_msg = f"请求频率超限: 请稍后重试"
-            model.error_message = error_msg
-            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
-
-            if self.logger:
-                self.logger.log_test_error(model.id, "RateLimitError", error_msg[:200])
-                self.logger.mark_tested(model.id)
-            else:
-                print(f"❌ #{model.rank} {model.id} - {elapsed:.2f}s - 请求频率超限")
-
-            return model
-
-        except ModelNotFoundError as e:
-            elapsed = time.time() - start_time
-            model.test_status = "failed"
-            model.response_time = elapsed
-            error_msg = f"模型不存在: {e.message}"
-            model.error_message = error_msg
-            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
-
-            if self.logger:
-                self.logger.log_test_error(model.id, "ModelNotFoundError", error_msg[:200])
-                self.logger.mark_tested(model.id)
-            else:
-                print(f"❌ #{model.rank} {model.id} - {elapsed:.2f}s - 模型不存在")
-
-            return model
-
-        except APITimeoutError:
-            elapsed = time.time() - start_time
-            model.test_status = "timeout"
-            model.response_time = elapsed
-            error_msg = f"请求超时: 服务器响应时间过长"
-            model.error_message = error_msg
-            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
-
-            if self.logger:
-                self.logger.log_test_timeout(model.id, 60)
-                self.logger.mark_tested(model.id)
-            else:
-                print(f"⏰ #{model.rank} {model.id} - {elapsed:.2f}s - API超时")
-
-            return model
-
-        except ServerError as e:
-            elapsed = time.time() - start_time
-            model.test_status = "failed"
-            model.response_time = elapsed
-            error_msg = f"服务器错误({e.status_code}): {e.message}"
-            model.error_message = error_msg
-            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
-
-            if self.logger:
-                self.logger.log_test_error(model.id, "ServerError", error_msg[:200])
-                self.logger.mark_tested(model.id)
-            else:
-                print(f"❌ #{model.rank} {model.id} - {elapsed:.2f}s - 服务器错误({e.status_code})")
-
-            return model
-
-        except APIError as e:
-            elapsed = time.time() - start_time
-            model.test_status = "failed"
-            model.response_time = elapsed
-            error_msg = f"API错误: {e.message}"
-            model.error_message = error_msg
-            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
-
-            if self.logger:
-                self.logger.log_test_error(model.id, "APIError", error_msg[:200])
-                self.logger.mark_tested(model.id)
-            else:
-                print(f"❌ #{model.rank} {model.id} - {elapsed:.2f}s - API错误: {e.message[:100]}")
-
-            return model
-
         except Exception as e:
-            elapsed = time.time() - start_time
-            model.test_status = "failed"
-            model.response_time = elapsed
-            model.error_message = str(e)[:500]
-            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
-
-            if self.logger:
-                self.logger.log_test_error(model.id, type(e).__name__, str(e)[:200])
-                self.logger.mark_tested(model.id)
-            else:
-                print(f"❌ #{model.rank} {model.id} - {elapsed:.2f}s - {type(e).__name__}: {str(e)[:100]}")
-
-            return model
+            return self._handle_test_error(model, e, start_time)
 
     async def test_model_async(self, model: ModelInfo, timeout: int = 60,
                               force_reasoning: bool = False,
                               force_normal: bool = False) -> ModelInfo:
-        """异步测试单个模型"""
         return await self.test_single_model(model, timeout, force_reasoning, force_normal)
 
     async def test_batch_models(self, models: List[ModelInfo],
@@ -436,16 +214,6 @@ class ModelTester:
                               timeout_reasoning: int = 180,
                               force_reasoning: bool = False,
                               force_normal: bool = False) -> List[ModelInfo]:
-        """批量测试模型
-
-        Args:
-            models: 模型列表
-            concurrency: 并发数
-            timeout: 普通模型超时时间（秒）
-            timeout_reasoning: 推理模型超时时间（秒，默认180秒）
-            force_reasoning: 强制所有模型使用推理模式
-            force_normal: 强制所有模型使用普通模式
-        """
         from .models import is_reasoning_model
 
         if self.logger:
@@ -459,14 +227,12 @@ class ModelTester:
 
         async def test_with_semaphore(model):
             async with semaphore:
-                # 根据是否为推理模型选择超时时间
                 if is_reasoning_model(model.id) and not force_normal:
                     model_timeout = timeout_reasoning
                 else:
                     model_timeout = timeout
 
                 result = await self.test_model_async(model, model_timeout, force_reasoning, force_normal)
-                # 记录进度
                 if self.logger:
                     completed = len(results) + 1
                     self.logger.log('INFO', 'progress',
@@ -477,7 +243,6 @@ class ModelTester:
 
         tasks = [test_with_semaphore(model) for model in models]
 
-        # 分批执行，避免一次性创建太多连接
         batch_size = concurrency * 2
         for i in range(0, len(tasks), batch_size):
             batch_tasks = tasks[i:i + batch_size]
@@ -493,7 +258,6 @@ class ModelTester:
                     results.append(result)
 
         if self.logger:
-            # 统计结果
             total = len(results)
             successful = sum(1 for m in results if m.test_status == "success")
             failed = sum(1 for m in results if m.test_status == "failed")
@@ -505,7 +269,6 @@ class ModelTester:
         return results
 
     def generate_report(self, models: List[ModelInfo]) -> dict:
-        """生成测试报告"""
         summary = {
             "total": len(models),
             "success": sum(1 for m in models if m.test_status == "success"),
@@ -515,13 +278,11 @@ class ModelTester:
             "pending": sum(1 for m in models if m.test_status == "pending"),
         }
 
-        # 成功模型按响应时间排序
         successful_models = sorted(
             [m for m in models if m.test_status == "success"],
             key=lambda x: x.response_time
         )
 
-        # 失败模型
         failed_models = [m for m in models if m.test_status in ("failed", "timeout")]
 
         return {
@@ -551,7 +312,6 @@ class ModelTester:
 
 
 def save_report(report: dict, filename: str):
-    """保存测试报告"""
     import json
 
     os.makedirs(os.path.dirname(filename), exist_ok=True)
@@ -571,21 +331,6 @@ async def test_top_models(limit: int = 50, concurrency: int = 5,
                           force_reasoning: bool = False,
                           force_normal: bool = False,
                           manual_reasoning_models: list = None):
-    """测试前N个热门模型
-
-    Args:
-        limit: 测试的模型数量
-        concurrency: 并发数
-        use_logger: 是否使用日志系统
-        resume: 是否启用断点续传（默认关闭）
-        sort_by: 排序方式，'popular' 或 'recent'
-        filter_text_models: 是否过滤非文本模型（默认 True）
-        model_type_filter: 模型类型过滤（None=全部, ModelType.TEXT=仅文本, ModelType.IMAGE_GENERATION=仅文生图）
-        reasoning_timeout: 推理模型超时时间（秒）
-        force_reasoning: 强制所有模型使用推理模式
-        force_normal: 强制所有模型使用普通模式
-        manual_reasoning_models: 手动指定的推理模型ID列表
-    """
     from .scraper import scrape_top_models
     from .logger import create_logger
 
@@ -596,7 +341,6 @@ async def test_top_models(limit: int = 50, concurrency: int = 5,
         print("🎯 NVIDIA 模型批量测试")
         print("=" * 60)
 
-    # 爬取模型列表
     if logger:
         logger.log_phase('scraping')
     else:
@@ -615,7 +359,6 @@ async def test_top_models(limit: int = 50, concurrency: int = 5,
             print("❌ 无法获取模型列表")
         return
 
-    # 处理手动指定的推理模型
     if manual_reasoning_models:
         for model in models:
             if model.id in manual_reasoning_models:
@@ -629,7 +372,6 @@ async def test_top_models(limit: int = 50, concurrency: int = 5,
     else:
         print(f"✅ 获取到 {len(models)} 个模型")
 
-    # 批量测试
     if logger:
         logger.log_phase('testing')
     else:
@@ -644,11 +386,9 @@ async def test_top_models(limit: int = 50, concurrency: int = 5,
         force_normal=force_normal
     )
 
-    # 保存断点（如果使用）
     if logger and resume:
         logger.save_checkpoint()
 
-    # 生成报告
     if logger:
         logger.log_phase('reporting')
     else:
@@ -656,15 +396,12 @@ async def test_top_models(limit: int = 50, concurrency: int = 5,
 
     report = tester.generate_report(results)
 
-    # 保存报告
     report_file = f"crawler/reports/test_report_{time.strftime('%Y%m%d_%H%M%S')}.json"
     save_report(report, report_file)
 
-    # 记录报告生成
     if logger:
         logger.log_report_generated(report_file)
 
-    # 打印摘要（即使有logger也给用户简短摘要）
     if not logger:
         print("\n" + "=" * 60)
         print("📈 测试摘要:")
@@ -680,5 +417,4 @@ async def test_top_models(limit: int = 50, concurrency: int = 5,
 
 
 if __name__ == "__main__":
-    # 测试
     asyncio.run(test_top_models(10, 3))

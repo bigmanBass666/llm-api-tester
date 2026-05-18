@@ -13,7 +13,7 @@ platforms:
     name: "nvidia"
     display_name: "NVIDIA NIM"
     base_url: "https://integrate.api.nvidia.com/v1"
-    api_key_env: "NVIDIA_API_KEY"
+    api_key_env: "NVIDIA_API_KEY"  # pragma: allowlist secret
     is_available: true
     description: "NVIDIA NIM 提供的多种开源大模型 API，包含 Qwen、DeepSeek、Llama、GLM 等"
     website: "https://build.nvidia.com"
@@ -91,6 +91,7 @@ platforms:
         - image-generation
         - text-to-image
         - image-gen
+        - image-editing
       image_model_keywords:
         - flux
         - stable-diffusion
@@ -98,6 +99,44 @@ platforms:
         - dall-e
         - imagen
         - cogview
+      multimodal_categories:
+        - vision-language
+        - visual-qa
+        - image-text-to-text
+        - visual-question-answering
+      multimodal_keywords:
+        - llama-4-maverick
+        - llama-4-scout
+        - qwen2-vl
+        - qwen2.5-vl
+        - glm-4v
+        - llava
+        - phi-3-vision
+        - idefics
+        - fuyu
+        - cogvlm
+        - internvl
+        - pixtral
+      speech_categories:
+        - speech
+        - asr
+        - tts
+        - automatic-speech-recognition
+        - text-to-speech
+      speech_keywords:
+        - whisper
+        - parakeet
+        - riva-translate
+        - magpie-tts
+        - nemotron-asr
+        - parakeet-ctc
+      usecase_filters:
+        text: "usecase:usecase_text_generation"
+        image: "usecase:usecase_text_to_image"
+        image_editing: "usecase:usecase_image_editing"
+        embedding: "usecase:usecase_retrieval_augmented_generation"
+        multimodal: "usecase:usecase_image_to_text"
+        speech: "usecase:usecase_speech_to_text"
 
     # 模型列表（保留原有结构）
     models:
@@ -127,7 +166,7 @@ platforms:
     name: "aliyun"
     display_name: "阿里云百炼"
     base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
-    api_key_env: "DASHSCOPE_API_KEY"
+    api_key_env: "DASHSCOPE_API_KEY"  # pragma: allowlist secret
     is_available: false
     description: "阿里云百炼平台，提供通义千问系列模型"
     website: "https://bailian.console.aliyun.com/"
@@ -144,7 +183,7 @@ platforms:
     name: "tencent"
     display_name: "腾讯云混元"
     base_url: "https://hunyuan.tencentcloudapi.com"
-    api_key_env: "TENCENTCLOUD_SECRET_ID"
+    api_key_env: "TENCENTCLOUD_SECRET_ID"  # pragma: allowlist secret
     is_available: false
     description: "腾讯云混元大模型"
     website: "https://cloud.tencent.com/product/hunyuan"
@@ -153,7 +192,7 @@ platforms:
     name: "zhipu"
     display_name: "智谱 GLM"
     base_url: "https://open.bigmodel.cn/api/paas/v4"
-    api_key_env: "ZHIPU_API_KEY"
+    api_key_env: "ZHIPU_API_KEY"  # pragma: allowlist secret
     is_available: true
     description: "智谱 AI 的 GLM 系列模型，包含免费API"
     website: "https://www.bigmodel.cn/"
@@ -229,6 +268,292 @@ platforms:
           category: "视觉理解"
           note: "多模态视觉，并发1"
 
+  zhipu2:
+    name: "zhipu2"
+    display_name: "智谱 GLM 2"
+    base_url: "https://open.bigmodel.cn/api/paas/v4"
+    api_key_env: "ZHIPU_API_KEY_2"  # pragma: allowlist secret
+    is_available: true
+    description: "智谱 AI 的 GLM 系列模型（第二个key）"
+    website: "https://www.bigmodel.cn/"
+
+    # 模型列表（与zhipu相同）
+    models:
+      free:
+        - id: "glm-4-flash-250414"
+          name: "GLM-4 Flash-250414"
+          concurrency: 200
+          category: "通用模型"
+          note: "首个免费API，200并发，128K上下文"
+        - id: "glm-4v-flash"
+          name: "GLM-4V Flash"
+          concurrency: 10
+          category: "通用模型"
+          note: "免费图像理解，10并发"
+        - id: "glm-4.7-flash"
+          name: "GLM-4.7 Flash"
+          concurrency: 1
+          category: "通用模型"
+          note: "30B级SOTA，需thinking参数，并发1"
+        - id: "glm-4.1v-thinking-flash"
+          name: "GLM-4.1V Thinking Flash"
+          concurrency: 5
+          category: "视觉推理"
+          note: "视觉推理+思考，5并发"
+        - id: "cogview-3-flash"
+          name: "CogView-3 Flash"
+          concurrency: 1
+          category: "图像生成"
+          note: "免费图像生成，不支持流式，并发1"
+        - id: "cogvideox-flash"
+          name: "CogVideoX Flash"
+          concurrency: 3
+          category: "视频生成"
+          note: "免费视频生成，API调用不可用"
+        - id: "glm-4.6v-flash"
+          name: "GLM-4.6V Flash"
+          concurrency: 1
+          category: "视觉理解"
+          note: "多模态视觉，并发1"
+
+  kimi:
+    name: "kimi"
+    display_name: "Kimi (月之暗面)"
+    base_url: "https://api.moonshot.cn/v1"
+    api_key_env: "KIMI_API_KEY"  # pragma: allowlist secret
+    is_available: true
+    description: "月之暗面 Kimi 大语言模型 API"
+    website: "https://platform.kimi.com"
+
+    # 模型列表（根据官方文档）
+    models:
+      free:
+        - id: "kimi-k2.6"
+          name: "Kimi K2.6"
+          concurrency: 5
+          category: "通用模型"
+          note: "最新旗舰模型，支持思考能力"
+        - id: "kimi-k2.5"
+          name: "Kimi K2.5"
+          concurrency: 5
+          category: "通用模型"
+          note: "高性能模型"
+        - id: "moonshot-v1-8k"
+          name: "Moonshot V1 8K"
+          concurrency: 5
+          category: "通用模型"
+          note: "8K上下文"
+        - id: "moonshot-v1-32k"
+          name: "Moonshot V1 32K"
+          concurrency: 5
+          category: "通用模型"
+          note: "32K上下文"
+        - id: "moonshot-v1-128k"
+          name: "Moonshot V1 128K"
+          concurrency: 5
+          category: "通用模型"
+          note: "128K上下文"
+
+  kimi2:
+    name: "kimi2"
+    display_name: "Kimi (月之暗面) 2"
+    base_url: "https://api.moonshot.cn/v1"
+    api_key_env: "KIMI_API_KEY_2"  # pragma: allowlist secret
+    is_available: true
+    description: "月之暗面 Kimi 大语言模型 API（第二个key）"
+    website: "https://platform.kimi.com"
+
+    # 模型列表（与kimi相同）
+    models:
+      free:
+        - id: "kimi-k2.6"
+          name: "Kimi K2.6"
+          concurrency: 5
+          category: "通用模型"
+          note: "最新旗舰模型，支持思考能力"
+        - id: "kimi-k2.5"
+          name: "Kimi K2.5"
+          concurrency: 5
+          category: "通用模型"
+          note: "高性能模型"
+        - id: "moonshot-v1-8k"
+          name: "Moonshot V1 8K"
+          concurrency: 5
+          category: "通用模型"
+          note: "8K上下文"
+        - id: "moonshot-v1-32k"
+          name: "Moonshot V1 32K"
+          concurrency: 5
+          category: "通用模型"
+          note: "32K上下文"
+        - id: "moonshot-v1-128k"
+          name: "Moonshot V1 128K"
+          concurrency: 5
+          category: "通用模型"
+          note: "128K上下文"
+
+  kimi3:
+    name: "kimi3"
+    display_name: "Kimi (月之暗面) 3"
+    base_url: "https://api.moonshot.cn/v1"
+    api_key_env: "KIMI_API_KEY_3"  # pragma: allowlist secret
+    is_available: true
+    description: "月之暗面 Kimi 大语言模型 API（第三个key）"
+    website: "https://platform.kimi.com"
+
+    # 模型列表（与kimi相同）
+    models:
+      free:
+        - id: "kimi-k2.6"
+          name: "Kimi K2.6"
+          concurrency: 5
+          category: "通用模型"
+          note: "最新旗舰模型，支持思考能力"
+        - id: "kimi-k2.5"
+          name: "Kimi K2.5"
+          concurrency: 5
+          category: "通用模型"
+          note: "高性能模型"
+        - id: "moonshot-v1-8k"
+          name: "Moonshot V1 8K"
+          concurrency: 5
+          category: "通用模型"
+          note: "8K上下文"
+        - id: "moonshot-v1-32k"
+          name: "Moonshot V1 32K"
+          concurrency: 5
+          category: "通用模型"
+          note: "32K上下文"
+        - id: "moonshot-v1-128k"
+          name: "Moonshot V1 128K"
+          concurrency: 5
+          category: "通用模型"
+          note: "128K上下文"
+
+  kimi4:
+    name: "kimi4"
+    display_name: "Kimi (月之暗面) 4"
+    base_url: "https://api.moonshot.cn/v1"
+    api_key_env: "KIMI_API_KEY_4"  # pragma: allowlist secret
+    is_available: true
+    description: "月之暗面 Kimi 大语言模型 API（第四个key）"
+    website: "https://platform.kimi.com"
+
+    # 模型列表（与kimi相同）
+    models:
+      free:
+        - id: "kimi-k2.6"
+          name: "Kimi K2.6"
+          concurrency: 5
+          category: "通用模型"
+          note: "最新旗舰模型，支持思考能力"
+        - id: "kimi-k2.5"
+          name: "Kimi K2.5"
+          concurrency: 5
+          category: "通用模型"
+          note: "高性能模型"
+        - id: "moonshot-v1-8k"
+          name: "Moonshot V1 8K"
+          concurrency: 5
+          category: "通用模型"
+          note: "8K上下文"
+        - id: "moonshot-v1-32k"
+          name: "Moonshot V1 32K"
+          concurrency: 5
+          category: "通用模型"
+          note: "32K上下文"
+        - id: "moonshot-v1-128k"
+          name: "Moonshot V1 128K"
+          concurrency: 5
+          category: "通用模型"
+          note: "128K上下文"
+
+  minimax:
+    name: "minimax"
+    display_name: "MiniMax"
+    base_url: "https://api.minimax.chat/v1"
+    api_key_env: "MINIMAX_API_KEY"  # pragma: allowlist secret
+    is_available: true
+    description: "MiniMax 大语言模型 API"
+    website: "https://platform.minimaxi.com"
+
+    # 模型列表（根据官方文档）
+    models:
+      free:
+        - id: "minimax-m2.7"
+          name: "MiniMax M2.7"
+          concurrency: 5
+          category: "通用模型"
+          note: "最新旗舰模型"
+        - id: "minimax-m2.5"
+          name: "MiniMax M2.5"
+          concurrency: 5
+          category: "通用模型"
+          note: "高性能模型"
+        - id: "minimax-m2.1"
+          name: "MiniMax M2.1"
+          concurrency: 5
+          category: "通用模型"
+          note: "多语言编程专家"
+        - id: "minimax-m2"
+          name: "MiniMax M2"
+          concurrency: 5
+          category: "通用模型"
+          note: "高效编码与Agent工作流"
+        - id: "minimax-m1"
+          name: "MiniMax M1"
+          concurrency: 5
+          category: "推理模型"
+          note: "推理模型，80K思维链"
+        - id: "minimax-text-01"
+          name: "MiniMax-Text-01"
+          concurrency: 5
+          category: "通用模型"
+          note: "文本模型"
+
+  minimax2:
+    name: "minimax2"
+    display_name: "MiniMax 2"
+    base_url: "https://api.minimax.chat/v1"
+    api_key_env: "MINIMAX_API_KEY_2"  # pragma: allowlist secret
+    is_available: true
+    description: "MiniMax 大语言模型 API（第二个key）"
+    website: "https://platform.minimaxi.com"
+
+    # 模型列表（与minimax相同）
+    models:
+      free:
+        - id: "minimax-m2.7"
+          name: "MiniMax M2.7"
+          concurrency: 5
+          category: "通用模型"
+          note: "最新旗舰模型"
+        - id: "minimax-m2.5"
+          name: "MiniMax M2.5"
+          concurrency: 5
+          category: "通用模型"
+          note: "高性能模型"
+        - id: "minimax-m2.1"
+          name: "MiniMax M2.1"
+          concurrency: 5
+          category: "通用模型"
+          note: "多语言编程专家"
+        - id: "minimax-m2"
+          name: "MiniMax M2"
+          concurrency: 5
+          category: "通用模型"
+          note: "高效编码与Agent工作流"
+        - id: "minimax-m1"
+          name: "MiniMax M1"
+          concurrency: 5
+          category: "推理模型"
+          note: "推理模型，80K思维链"
+        - id: "minimax-text-01"
+          name: "MiniMax-Text-01"
+          concurrency: 5
+          category: "通用模型"
+          note: "文本模型"
+
   ollama:
     name: "ollama"
     display_name: "Ollama (本地)"
@@ -250,7 +575,7 @@ platforms:
     name: "openai"
     display_name: "OpenAI"
     base_url: "https://api.openai.com/v1"
-    api_key_env: "OPENAI_API_KEY"
+    api_key_env: "OPENAI_API_KEY"  # pragma: allowlist secret
     is_available: false
     description: "OpenAI API (需要代理)"
     website: "https://platform.openai.com/"
@@ -259,7 +584,7 @@ platforms:
     name: "deepseek"
     display_name: "DeepSeek API"
     base_url: "https://api.deepseek.com/v1"
-    api_key_env: "DEEPSEEK_API_KEY"
+    api_key_env: "DEEPSEEK_API_KEY"  # pragma: allowlist secret
     is_available: false
     description: "DeepSeek 官方 API"
     website: "https://platform.deepseek.com/"

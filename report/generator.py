@@ -23,7 +23,25 @@ class MarkdownFormatter:
         'flash': '⚡',
         'thinking': '🤔',
         'image_generation': '🎨',
+        'partner': '🤝',
     }
+
+    def _format_endpoint_type(self, endpoint_type: str) -> str:
+        if endpoint_type == 'free':
+            return '🔓'
+        elif endpoint_type == 'partner':
+            return '🤝'
+        return endpoint_type
+
+    def _format_deprecation(self, deprecation_info: Optional[str]) -> str:
+        if deprecation_info:
+            return f'⚠️ {deprecation_info}'
+        return ''
+
+    def _format_model_id_with_deprecation(self, model_id: str, deprecation_info: Optional[str]) -> str:
+        if deprecation_info:
+            return f'{model_id} ⚠️'
+        return model_id
 
     def format(self, report: TestReport) -> str:
         """生成 Markdown 格式报告"""
@@ -52,8 +70,8 @@ class MarkdownFormatter:
 
 ## 🏆 最快模型排行榜 (Top 10)
 
-| 排名 | 模型ID | 调用量 | 发布时间 | 响应时间 | 状态 |
-|------|--------|--------|----------|----------|------|
+| 排名 | 模型ID | 端点 | 调用量 | 发布时间 | 响应时间 | 状态 |
+|------|--------|------|--------|----------|----------|------|
 """
 
         successful = sorted(
@@ -64,35 +82,45 @@ class MarkdownFormatter:
         for i, r in enumerate(successful[:10], 1):
             cv = self._format_call_volume(r.call_volume)
             pub = self._format_published_at(r.published_at)
-            md += f"| {i} | {r.model_id} | {cv} | {pub} | {r.response_time:.2f}s | ✅ |\n"
+            ep = self._format_endpoint_type(r.endpoint_type)
+            model_id = self._format_model_id_with_deprecation(r.model_id, r.deprecation_info)
+            md += f"| {i} | {model_id} | {ep} | {cv} | {pub} | {r.response_time:.2f}s | ✅ |\n"
 
         md += """
 ---
 
 ## 🎯 文本模型测试结果 (按热度排序)
 
-| 热度排名 | 模型ID | 调用量 | 发布时间 | 标签 | 响应时间 | 状态/错误 |
-|----------|--------|--------|----------|------|----------|----------|
+| 热度排名 | 模型ID | 端点 | 调用量 | 发布时间 | 标签 | 响应时间 | 状态/错误 |
+|----------|--------|------|--------|----------|------|----------|----------|
 """
         sorted_results = sorted(report.results, key=lambda x: x.rank)
-        text_results = [r for r in sorted_results if r.model_type != 'image_generation']
-        image_results = [r for r in sorted_results if r.model_type == 'image_generation']
+        text_results = [r for r in sorted_results if r.model_type not in ('image_generation', 'image_editing')]
+        image_results = [r for r in sorted_results if r.model_type in ('image_generation', 'image_editing')]
 
         for r in text_results:
             tags_str = self._format_tags(r.tags)
             cv = self._format_call_volume(r.call_volume)
             pub = self._format_published_at(r.published_at)
+            ep = self._format_endpoint_type(r.endpoint_type)
+            model_id = self._format_model_id_with_deprecation(r.model_id, r.deprecation_info)
+            depr = self._format_deprecation(r.deprecation_info)
             if r.status == 'success':
                 status_icon = '✅'
                 detail = '成功'
             elif r.status == 'timeout':
                 status_icon = '⏰'
                 detail = '超时'
+            elif r.status == 'skipped':
+                status_icon = '⏭️'
+                detail = '跳过'
             else:
                 status_icon = '❌'
                 detail = r.error_message[:40] if r.error_message else r.status
 
-            md += f"| {r.rank} | {r.model_id} | {cv} | {pub} | {tags_str} | {r.response_time:.2f}s | {status_icon} {detail} |\n"
+            if depr:
+                detail = f"{detail} ({depr})"
+            md += f"| {r.rank} | {model_id} | {ep} | {cv} | {pub} | {tags_str} | {r.response_time:.2f}s | {status_icon} {detail} |\n"
 
         if image_results:
             md += """
@@ -100,13 +128,16 @@ class MarkdownFormatter:
 
 ## 🎨 文生图模型测试结果
 
-| 热度排名 | 模型ID | 调用量 | 发布时间 | 标签 | 响应时间 | 图片信息 | 状态/错误 |
-|----------|--------|--------|----------|------|----------|----------|----------|
+| 热度排名 | 模型ID | 端点 | 调用量 | 发布时间 | 标签 | 响应时间 | 图片信息 | 状态/错误 |
+|----------|--------|------|--------|----------|------|----------|----------|----------|
 """
             for r in image_results:
                 tags_str = self._format_tags(r.tags)
                 cv = self._format_call_volume(r.call_volume)
                 pub = self._format_published_at(r.published_at)
+                ep = self._format_endpoint_type(r.endpoint_type)
+                model_id = self._format_model_id_with_deprecation(r.model_id, r.deprecation_info)
+                depr = self._format_deprecation(r.deprecation_info)
                 if r.status == 'success':
                     status_icon = '✅'
                     detail = '成功'
@@ -115,12 +146,18 @@ class MarkdownFormatter:
                     status_icon = '⏰'
                     detail = '超时'
                     img_info = '-'
+                elif r.status == 'skipped':
+                    status_icon = '⏭️'
+                    detail = '跳过'
+                    img_info = '-'
                 else:
                     status_icon = '❌'
                     detail = r.error_message[:40] if r.error_message else r.status
                     img_info = '-'
 
-                md += f"| {r.rank} | {r.model_id} | {cv} | {pub} | {tags_str} | {r.response_time:.2f}s | {img_info} | {status_icon} {detail} |\n"
+                if depr:
+                    detail = f"{detail} ({depr})"
+                md += f"| {r.rank} | {model_id} | {ep} | {cv} | {pub} | {tags_str} | {r.response_time:.2f}s | {img_info} | {status_icon} {detail} |\n"
 
         md += f"""
 ---
@@ -133,6 +170,9 @@ class MarkdownFormatter:
 | 🔓 | free | 免费API端点 |
 | ⚡ | flash | 快速模型 |
 | 🤔 | thinking | 推理模型 |
+| 🤝 | partner | 合作伙伴端点（非免费） |
+| ⚠️ | 弃用 | 模型即将弃用 |
+| ⏭️ | skipped | 测试已跳过 |
 
 ---
 

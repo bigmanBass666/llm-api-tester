@@ -86,7 +86,7 @@ class NvidiaScraper(_NvidiaScraper):
             await self._init_browser()
 
 
-async def scrape_top_models(limit: int = 50, sort_by: str = "platforms", filter_text_models: bool = False, model_type_filter=None) -> List[ModelInfo]:
+async def scrape_top_models(limit: int = 50, sort_by: str = "platforms", filter_text_models: bool = False, model_type_filter=None, usecase_filter=None) -> List[ModelInfo]:
     """爬取前N个热门模型（向后兼容的便捷函数）
 
     此函数直接委托给 platforms.nvidia.scraper.scrape_top_models
@@ -96,6 +96,7 @@ async def scrape_top_models(limit: int = 50, sort_by: str = "platforms", filter_
         sort_by: 排序方式，'popular' 或 'recent'
         filter_text_models: (已废弃) 是否只爬取文字模型，建议使用 model_type_filter
         model_type_filter: 模型类型过滤（None=全部, ModelType.TEXT=仅文本, ModelType.IMAGE_GENERATION=仅文生图）
+        usecase_filter: 用例过滤，如 'text-generation', 'image-generation' 等
 
     Returns:
         ModelInfo 列表
@@ -107,7 +108,7 @@ async def scrape_top_models(limit: int = 50, sort_by: str = "platforms", filter_
     from src.models import ModelType
     if model_type_filter is None and filter_text_models:
         model_type_filter = ModelType.TEXT
-    return await _scrape_top_models(limit=limit, sort_by=sort_by, model_type_filter=model_type_filter)
+    return await _scrape_top_models(limit=limit, sort_by=sort_by, model_type_filter=model_type_filter, usecase_filter=usecase_filter)
 
 
 # 向后兼容：从配置加载器获取配置常量

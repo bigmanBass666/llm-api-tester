@@ -21,16 +21,16 @@ class PlatformSpec:
 
 
 @dataclass
-class PlatformConfig:
-    """平台配置"""
-    name: str  # 平台标识（nvidia, aliyun, etc.）
-    display_name: str  # 显示名称
-    client_class: Type  # 客户端类（不再限制为 BaseClient）
-    default_base_url: Optional[str] = None  # 默认基础 URL
-    api_key_env: Optional[str] = None  # API Key 环境变量名
-    is_available: bool = True  # 是否可用
-    description: str = ""  # 平台描述
-    website: str = ""  # 官网
+class RegistryEntry:
+    """平台注册条目 — 运行时注册信息（区别于 src.platform_config.PlatformConfig 的配置数据）"""
+    name: str
+    display_name: str
+    client_class: Type
+    default_base_url: Optional[str] = None
+    api_key_env: Optional[str] = None
+    is_available: bool = True
+    description: str = ""
+    website: str = ""
     spec: Optional[PlatformSpec] = None
 
 
@@ -38,7 +38,7 @@ class PlatformRegistry:
     """平台注册表（单例）"""
 
     _instance: Optional['PlatformRegistry'] = None
-    _platforms: Dict[str, PlatformConfig] = {}
+    _platforms: Dict[str, RegistryEntry] = {}
     _default_client = None
 
     def __new__(cls):
@@ -47,7 +47,7 @@ class PlatformRegistry:
             cls._instance._platforms = {}
         return cls._instance
 
-    def register(self, config: PlatformConfig) -> None:
+    def register(self, config: RegistryEntry) -> None:
         """注册平台"""
         self._platforms[config.name] = config
         spec = get_platform_spec(config.name)
@@ -59,15 +59,15 @@ class PlatformRegistry:
         if name in self._platforms:
             del self._platforms[name]
 
-    def get(self, name: str) -> Optional[PlatformConfig]:
+    def get(self, name: str) -> Optional[RegistryEntry]:
         """获取平台配置"""
         return self._platforms.get(name)
 
-    def list_platforms(self) -> List[PlatformConfig]:
+    def list_platforms(self) -> List[RegistryEntry]:
         """列出所有注册的平台"""
         return list(self._platforms.values())
 
-    def list_available_platforms(self) -> List[PlatformConfig]:
+    def list_available_platforms(self) -> List[RegistryEntry]:
         """列出所有可用的平台"""
         return [p for p in self._platforms.values() if p.is_available]
 
@@ -139,7 +139,10 @@ def get_platform_spec(name: str) -> Optional[PlatformSpec]:
         return _spec_cache[name]
     try:
         import importlib
-        mod = importlib.import_module(f".platforms.{name}", package=__package__)
+        try:
+            mod = importlib.import_module(f".platforms.{name}", package=__package__)
+        except (ImportError, ModuleNotFoundError):
+            mod = importlib.import_module(f"platforms.{name}")
     except (ImportError, ModuleNotFoundError):
         _spec_cache[name] = None
         return None
@@ -161,7 +164,10 @@ def create_component(platform: str, role: str, **kwargs):
     if cls_name is None:
         raise ValueError(f"平台 {platform} 未提供 {role} 组件类")
     import importlib
-    mod = importlib.import_module(f".platforms.{platform}.{role}", package=__package__)
+    try:
+        mod = importlib.import_module(f".platforms.{platform}.{role}", package=__package__)
+    except (ImportError, ModuleNotFoundError):
+        mod = importlib.import_module(f"platforms.{platform}.{role}")
     cls = getattr(mod, cls_name)
     return cls(**kwargs)
 
@@ -215,7 +221,7 @@ def register_platform(
             ...
     """
     def decorator(cls: Type) -> Type:
-        config = PlatformConfig(
+        config = RegistryEntry(
             name=name,
             display_name=display_name,
             client_class=cls,

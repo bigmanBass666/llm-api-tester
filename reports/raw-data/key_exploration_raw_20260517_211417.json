@@ -1,0 +1,189 @@
+{
+  "summary": {
+    "test_time": "2026-05-17 21:14:17",
+    "total_keys": 6,
+    "success": 3,
+    "failed": 3,
+    "platforms": {
+      "zhipu": {
+        "total": 2,
+        "success": 2,
+        "failed": 0,
+        "keys": [
+          {
+            "key_name": "ZHIPU_API_KEY",
+            "key_suffix": "xFU9GRxm",
+            "success": true,
+            "models_count": 7,
+            "response_time": 0.580141544342041,
+            "error": null
+          },
+          {
+            "key_name": "ZHIPU_API_KEY_2",
+            "key_suffix": "XTq792I2",
+            "success": true,
+            "models_count": 7,
+            "response_time": null,
+            "error": "性能测试失败: Error code: 429 - {'error': {'code': '1113', 'message': '余额不足或无可用资源包,请充值。'}}"
+          }
+        ]
+      },
+      "kimi": {
+        "total": 3,
+        "success": 0,
+        "failed": 3,
+        "keys": [
+          {
+            "key_name": "KIMI_API_KEY_2",
+            "key_suffix": "c5Op7dCQ",
+            "success": false,
+            "models_count": 0,
+            "response_time": null,
+            "error": null
+          },
+          {
+            "key_name": "KIMI_API_KEY_3",
+            "key_suffix": "cxMq7APG",
+            "success": false,
+            "models_count": 0,
+            "response_time": null,
+            "error": null
+          },
+          {
+            "key_name": "KIMI_API_KEY_4",
+            "key_suffix": "KV0D83IE",
+            "success": false,
+            "models_count": 0,
+            "response_time": null,
+            "error": null
+          }
+        ]
+      },
+      "minimax": {
+        "total": 1,
+        "success": 1,
+        "failed": 0,
+        "keys": [
+          {
+            "key_name": "MINIMAX_API_KEY_2",
+            "key_suffix": "PRveZ4II",
+            "success": true,
+            "models_count": 7,
+            "response_time": 2.51728892326355,
+            "error": null
+          }
+        ]
+      }
+    }
+  },
+  "results": [
+    {
+      "platform": "zhipu",
+      "key_name": "ZHIPU_API_KEY",
+      "key_suffix": "xFU9GRxm",
+      "connection_success": true,
+      "connection_error": null,
+      "models_count": 7,
+      "models_list": [
+        "glm-4.5",
+        "glm-4.5-air",
+        "glm-4.6",
+        "glm-4.7",
+        "glm-5",
+        "glm-5-turbo",
+        "glm-5.1"
+      ],
+      "test_model": "glm-4.5",
+      "response_time": 0.580141544342041,
+      "ttft": null,
+      "response_content": "你好！有什么我可以帮忙的吗？",
+      "error": null
+    },
+    {
+      "platform": "zhipu",
+      "key_name": "ZHIPU_API_KEY_2",
+      "key_suffix": "XTq792I2",
+      "connection_success": true,
+      "connection_error": null,
+      "models_count": 7,
+      "models_list": [
+        "glm-4.5",
+        "glm-4.5-air",
+        "glm-4.6",
+        "glm-4.7",
+        "glm-5",
+        "glm-5-turbo",
+        "glm-5.1"
+      ],
+      "test_model": "glm-4.5",
+      "response_time": null,
+      "ttft": null,
+      "response_content": null,
+      "error": "性能测试失败: Error code: 429 - {'error': {'code': '1113', 'message': '余额不足或无可用资源包,请充值。'}}"
+    },
+    {
+      "platform": "kimi",
+      "key_name": "KIMI_API_KEY_2",
+      "key_suffix": "c5Op7dCQ",
+      "connection_success": false,
+      "connection_error": "连接失败",
+      "models_count": 0,
+      "models_list": [],
+      "test_model": null,
+      "response_time": null,
+      "ttft": null,
+      "response_content": null,
+      "error": null
+    },
+    {
+      "platform": "kimi",
+      "key_name": "KIMI_API_KEY_3",
+      "key_suffix": "cxMq7APG",
+      "connection_success": false,
+      "connection_error": "连接失败",
+      "models_count": 0,
+      "models_list": [],
+      "test_model": null,
+      "response_time": null,
+      "ttft": null,
+      "response_content": null,
+      "error": null
+    },
+    {
+      "platform": "kimi",
+      "key_name": "KIMI_API_KEY_4",
+      "key_suffix": "KV0D83IE",
+      "connection_success": false,
+      "connection_error": "连接失败",
+      "models_count": 0,
+      "models_list": [],
+      "test_model": null,
+      "response_time": null,
+      "ttft": null,
+      "response_content": null,
+      "error": null
+    },
+    {
+      "platform": "minimax",
+      "key_name": "MINIMAX_API_KEY_2",
+      "key_suffix": "PRveZ4II",
+      "connection_success": true,
+      "connection_error": null,
+      "models_count": 7,
+      "models_list": [
+        "MiniMax-M2.7",
+        "MiniMax-M2.7-highspeed",
+        "MiniMax-M2.5",
+        "MiniMax-M2.5-highspeed",
+        "MiniMax-M2.1",
+        "MiniMax-M2.1-highspeed",
+        "MiniMax-M2"
+      ],
+      "test_model": "MiniMax-M2.7",
+      "response_time": 2.51728892326355,
+      "ttft": null,
+      "response_content": "<think>用户用中文说\"你好，请简短回复\"，意思是\"Hello, please give a brief reply\"。\n\n我应该简短地回复问候。</think>\n\n你好！有什么我可以帮助你的吗？",
+      "error": null
+    }
+  ]
+}

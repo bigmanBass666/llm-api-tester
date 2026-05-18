@@ -3,7 +3,6 @@ NVIDIA 模型数据结构
 """
 
 from typing import Optional, List
-from datetime import datetime
 from dataclasses import dataclass
 
 from src.models import ModelInfo as _SrcModelInfo
@@ -78,19 +77,6 @@ def get_reasoning_effort(model_id: str) -> str:
         return "medium"
 
     return "high"  # 默认值
-
-
-@dataclass
-class TestReport:
-    """测试报告"""
-    timestamp: str
-    total_models: int
-    successful: int
-    failed: int
-    timeout: int
-    pending: int
-    models: List[ModelInfo]
-    duration: float = 0  # 总测试时长(秒)
 
 
 class ModelStore:
