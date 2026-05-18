@@ -8,7 +8,6 @@ import asyncio
 import os
 import ssl
 from typing import List, Dict, Optional
-from playwright.async_api import async_playwright
 import httpx
 
 import sys
@@ -210,6 +209,7 @@ class NvidiaScraper(BaseScraper):
                     free_endpoint = True
                     full_model_id = None
                     category = None
+                    description = ""
 
                     # 提取完整模型 ID（优先从链接获取）
                     try:
@@ -267,11 +267,13 @@ class NvidiaScraper(BaseScraper):
                     except Exception:
                         pass
 
-                    # 提取 Category Tag（从卡片 innerText 第5行）
+                    # 提取 Category Tag 和 Description（从卡片 innerText）
                     try:
                         full_text = await card.inner_text()
                         lines = [line.strip() for line in full_text.split('\n') if line.strip()]
                         # lines 结构: [0]=Vendor, [1]=Badge, [2]=Model Name, [3]=Description, [4]=Category Tag
+                        if len(lines) >= 4:
+                            description = lines[3]
                         if len(lines) >= 5:
                             category = lines[4].lower()
                     except Exception:
@@ -346,6 +348,7 @@ class NvidiaScraper(BaseScraper):
                         is_free_endpoint=free_endpoint,
                         tags=tags,
                         category=category,
+                        description=description,
                         call_volume=call_volume,
                         published_at=published_at,
                         deprecation_info=deprecation_info,
@@ -564,6 +567,7 @@ class NvidiaScraper(BaseScraper):
 
     async def _init_browser(self):
         """初始化浏览器"""
+        from playwright.async_api import async_playwright
         playwright = await async_playwright().start()
         self.browser = await playwright.chromium.launch(
             headless=self.headless,
