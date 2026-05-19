@@ -72,8 +72,8 @@ def main():
                       help="单模型测试时的消息内容")
     opts.add_argument("-c", "--concurrency", type=int, default=5,
                       help="并发测试数量 (默认: 5)")
-    opts.add_argument("--timeout", type=int, default=60,
-                      help="单个模型超时时间(秒) (默认: 60)")
+    opts.add_argument("--timeout", type=int, default=30,
+                      help="单个模型超时时间(秒) (默认: 30)")
     opts.add_argument("--max-time", type=int, default=0,
                       help="总测试时间上限(秒)，0=不限制 (默认: 0)")
     opts.add_argument("--sort-by", default="popular",

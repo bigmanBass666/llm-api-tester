@@ -11,7 +11,7 @@ from src.platform_registry import get_platform_spec, create_component, ensure_pl
 from src.models import ChatMessage, ModelType
 
 
-async def run(platform, number=20, concurrency=5, timeout=60, max_time=0, sort_by="popular",
+async def run(platform, number=20, concurrency=5, timeout=30, max_time=0, sort_by="popular",
               model_type="all", scrape_only=False, resume=False, filter_text=True, quiet=False,
               usecase=None, favorites=False):
     ensure_platform_registered(platform)
@@ -102,11 +102,13 @@ async def run(platform, number=20, concurrency=5, timeout=60, max_time=0, sort_b
         print(f"获取到 {len(models)} 个模型")
 
     # 过滤掉 API 中不存在的模型（is_hosted = False）
-    before_count = len(models)
-    models = [m for m in models if m.is_hosted is not False]
-    if not quiet and before_count > len(models):
-        skipped = before_count - len(models)
-        print(f"🚫 已跳过 {skipped} 个 API 不可用的模型")
+    # 收藏模型模式跳过此过滤
+    if not favorites:
+        before_count = len(models)
+        models = [m for m in models if m.is_hosted is not False]
+        if not quiet and before_count > len(models):
+            skipped = before_count - len(models)
+            print(f"🚫 已跳过 {skipped} 个 API 不可用的模型")
 
     if scrape_only:
         if not quiet:
@@ -121,7 +123,7 @@ async def run(platform, number=20, concurrency=5, timeout=60, max_time=0, sort_b
         print(f"\n开始测试 ({concurrency} 并发)...")
         print("-" * 60)
 
-    if spec and spec.legacy_mode:
+    if spec and spec.legacy_mode and not favorites:
         from crawler.tester import test_top_models
         try:
             if max_time > 0:
