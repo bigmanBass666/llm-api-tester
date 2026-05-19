@@ -1,0 +1,298 @@
+[
+  {
+    "id": "openai/gpt-oss-20b",
+    "status": "success",
+    "time": 4.66
+  },
+  {
+    "id": "stepfun-ai/step-3.5-flash",
+    "status": "success",
+    "time": 3.52
+  },
+  {
+    "id": "nvidia/ising-calibration-1-35b-a3b",
+    "status": "success",
+    "time": 4.82
+  },
+  {
+    "id": "qwen/qwen3-next-80b-a3b-instruct",
+    "status": "timeout",
+    "time": 25.76
+  },
+  {
+    "id": "moonshotai/kimi-k2.6",
+    "status": "timeout",
+    "time": 22.02
+  },
+  {
+    "id": "nvidia/gliner-pii",
+    "status": "success",
+    "time": 5.91
+  },
+  {
+    "id": "openai/gpt-oss-120b",
+    "status": "success",
+    "time": 1.65
+  },
+  {
+    "id": "google/gemma-3n-e2b-it",
+    "status": "success",
+    "time": 1.53
+  },
+  {
+    "id": "mistralai/mistral-small-4-119b-2603",
+    "status": "success",
+    "time": 5.52
+  },
+  {
+    "id": "meta/llama-4-maverick-17b-128e-instruct",
+    "status": "success",
+    "time": 5.22
+  },
+  {
+    "id": "meta/llama-3.3-70b-instruct",
+    "status": "success",
+    "time": 1.8
+  },
+  {
+    "id": "meta/llama-3.1-8b-instruct",
+    "status": "success",
+    "time": 5.44
+  },
+  {
+    "id": "nvidia/nemotron-3-nano-30b-a3b",
+    "status": "success",
+    "time": 1.36
+  },
+  {
+    "id": "nvidia/nemotron-3-super-120b-a12b",
+    "status": "success",
+    "time": 2.28
+  },
+  {
+    "id": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+    "status": "success",
+    "time": 9.16
+  },
+  {
+    "id": "nvidia/nemotron-3-content-safety",
+    "status": "success",
+    "time": 2.63
+  },
+  {
+    "id": "google/gemma-3n-e4b-it",
+    "status": "success",
+    "time": 1.76
+  },
+  {
+    "id": "abacusai/dracarys-llama-3.1-70b-instruct",
+    "status": "failed",
+    "time": 1.2,
+    "error": "HTTP 400"
+  },
+  {
+    "id": "google/gemma-2-2b-it",
+    "status": "success",
+    "time": 8.28
+  },
+  {
+    "id": "meta/llama-guard-4-12b",
+    "status": "success",
+    "time": 6.42
+  },
+  {
+    "id": "nvidia/llama-3.1-nemotron-nano-vl-8b-v1",
+    "status": "success",
+    "time": 10.1
+  },
+  {
+    "id": "nvidia/llama-3.1-nemotron-nano-8b-v1",
+    "status": "success",
+    "time": 1.71
+  },
+  {
+    "id": "nvidia/nemotron-mini-4b-instruct",
+    "status": "success",
+    "time": 1.34
+  },
+  {
+    "id": "nvidia/nemotron-nano-12b-v2-vl",
+    "status": "success",
+    "time": 1.43
+  },
+  {
+    "id": "nvidia/nvidia-nemotron-nano-9b-v2",
+    "status": "success",
+    "time": 1.41
+  },
+  {
+    "id": "sarvamai/sarvam-m",
+    "status": "success",
+    "time": 1.47
+  },
+  {
+    "id": "stockmark/stockmark-2-100b-instruct",
+    "status": "success",
+    "time": 1.61
+  },
+  {
+    "id": "upstage/solar-10.7b-instruct",
+    "status": "success",
+    "time": 1.5
+  },
+  {
+    "id": "bigcode/starcoder2-15b",
+    "status": "failed",
+    "time": 1.12,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "bytedance/seed-oss-36b-instruct",
+    "status": "success",
+    "time": 7.62
+  },
+  {
+    "id": "databricks/dbrx-instruct",
+    "status": "failed",
+    "time": 2.42,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "deepseek-ai/deepseek-coder-6.7b-instruct",
+    "status": "failed",
+    "time": 1.18,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "deepseek-ai/deepseek-v4-flash",
+    "status": "timeout",
+    "time": 20.98
+  },
+  {
+    "id": "deepseek-ai/deepseek-v4-pro",
+    "status": "timeout",
+    "time": 22.24
+  },
+  {
+    "id": "google/codegemma-7b",
+    "status": "failed",
+    "time": 2.17,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "google/gemma-4-31b-it",
+    "status": "timeout",
+    "time": 26.06
+  },
+  {
+    "id": "ibm/granite-3.0-8b-instruct",
+    "status": "failed",
+    "time": 6.79,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "meta/codellama-70b",
+    "status": "failed",
+    "time": 1.12,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "meta/llama-3.1-70b-instruct",
+    "status": "timeout",
+    "time": 21.0
+  },
+  {
+    "id": "meta/llama-3.2-1b-instruct",
+    "status": "success",
+    "time": 5.66
+  },
+  {
+    "id": "meta/llama-3.2-3b-instruct",
+    "status": "success",
+    "time": 1.3
+  },
+  {
+    "id": "meta/llama-3.2-11b-vision-instruct",
+    "status": "timeout",
+    "time": 24.81
+  },
+  {
+    "id": "microsoft/phi-4-mini-instruct",
+    "status": "timeout",
+    "time": 24.97
+  },
+  {
+    "id": "microsoft/phi-4-multimodal-instruct",
+    "status": "success",
+    "time": 1.86
+  },
+  {
+    "id": "mistralai/mistral-7b-instruct-v0.3",
+    "status": "failed",
+    "time": 1.15,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "mistralai/mistral-large",
+    "status": "failed",
+    "time": 1.18,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "mistralai/mistral-large-2-instruct",
+    "status": "failed",
+    "time": 1.2,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "mistralai/mistral-large-3-675b-instruct-2512",
+    "status": "failed",
+    "time": 1.12,
+    "error": "HTTP 400"
+  },
+  {
+    "id": "mistralai/mistral-medium-3.5-128b",
+    "status": "timeout",
+    "time": 20.98
+  },
+  {
+    "id": "mistralai/mistral-nemotron",
+    "status": "timeout",
+    "time": 21.19
+  },
+  {
+    "id": "mistralai/mixtral-8x7b-instruct-v0.1",
+    "status": "success",
+    "time": 2.13
+  },
+  {
+    "id": "mistralai/mixtral-8x22b-instruct-v0.1",
+    "status": "success",
+    "time": 6.48
+  },
+  {
+    "id": "minimaxai/minimax-m2.7",
+    "status": "timeout",
+    "time": 21.47
+  },
+  {
+    "id": "qwen/qwen3-coder-480b-a35b-instruct",
+    "status": "success",
+    "time": 9.64
+  },
+  {
+    "id": "qwen/qwen3.5-122b-a10b",
+    "status": "timeout",
+    "time": 24.35
+  },
+  {
+    "id": "qwen/qwen3.5-397b-a17b",
+    "status": "timeout",
+    "time": 22.97
+  },
+  {
+    "id": "z-ai/glm-5.1",
+    "status": "timeout",
+    "time": 21.2
+  }
+]
