@@ -1,0 +1,49 @@
+[
+  {
+    "id": "stepfun-ai/step-3.5-flash",
+    "status": "success",
+    "time": 2.16
+  },
+  {
+    "id": "moonshotai/kimi-k2.6",
+    "status": "timeout",
+    "time": 36.08
+  },
+  {
+    "id": "z-ai/glm-5.1",
+    "status": "timeout",
+    "time": 32.79
+  },
+  {
+    "id": "z-ai/glm-4.7",
+    "status": "failed",
+    "time": 4.65,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "minimaxai/minimax-m2.7",
+    "status": "timeout",
+    "time": 31.14
+  },
+  {
+    "id": "minimaxai/minimax-m2.5",
+    "status": "failed",
+    "time": 1.28,
+    "error": "HTTP 410"
+  },
+  {
+    "id": "deepseek-ai/deepseek-v4-flash",
+    "status": "timeout",
+    "time": 36.05
+  },
+  {
+    "id": "deepseek-ai/deepseek-v4-pro",
+    "status": "timeout",
+    "time": 32.01
+  },
+  {
+    "id": "nvidia/nemotron-3-super-120b-a12b",
+    "status": "success",
+    "time": 6.13
+  }
+]
