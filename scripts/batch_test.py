@@ -74,6 +74,8 @@ def main():
                       help="并发测试数量 (默认: 5)")
     opts.add_argument("--timeout", type=int, default=60,
                       help="单个模型超时时间(秒) (默认: 60)")
+    opts.add_argument("--max-time", type=int, default=0,
+                      help="总测试时间上限(秒)，0=不限制 (默认: 0)")
     opts.add_argument("--sort-by", default="popular",
                       choices=["popular", "recent"],
                       help="排序方式 (默认: popular)")
@@ -136,6 +138,7 @@ def main():
             number=args.number,
             concurrency=args.concurrency,
             timeout=args.timeout,
+            max_time=args.max_time,
             sort_by=args.sort_by,
             model_type=args.model_type,
             resume=args.resume,

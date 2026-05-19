@@ -10,7 +10,7 @@ from src.platform_registry import get_platform_spec, create_component, ensure_pl
 from src.models import ChatMessage, ModelType
 
 
-async def run(platform, number=20, concurrency=5, timeout=60, sort_by="popular",
+async def run(platform, number=20, concurrency=5, timeout=60, max_time=0, sort_by="popular",
               model_type="all", scrape_only=False, resume=False, filter_text=True, quiet=False, usecase=None):
     ensure_platform_registered(platform)
     api_key = get_api_key(platform)
@@ -26,6 +26,8 @@ async def run(platform, number=20, concurrency=5, timeout=60, sort_by="popular",
         print(f"  模型数量 : {number}")
         print(f"  并发数   : {concurrency}")
         print(f"  超时时间 : {timeout}s")
+        if max_time > 0:
+            print(f"  总时间上限 : {max_time}s")
         print(f"  排序方式 : {sort_by}")
         print(f"  模型类型 : {model_type}")
         if usecase:
@@ -77,12 +79,20 @@ async def run(platform, number=20, concurrency=5, timeout=60, sort_by="popular",
     if not quiet:
         print(f"获取到 {len(models)} 个模型")
 
+    # 过滤掉 API 中不存在的模型（is_hosted = False）
+    before_count = len(models)
+    models = [m for m in models if m.is_hosted is not False]
+    if not quiet and before_count > len(models):
+        skipped = before_count - len(models)
+        print(f"🚫 已跳过 {skipped} 个 API 不可用的模型")
+
     if scrape_only:
         if not quiet:
             print("\n模型列表:")
             for m in models:
                 tags = f" [{' '.join(m.tags)}]" if m.tags else ""
-                print(f"  #{m.rank} {m.id}{tags}")
+                api = " 🌐" if m.is_hosted else " ❌" if m.is_hosted is False else ""
+                print(f"  #{m.rank} {m.id}{tags}{api}")
         return
 
     if not quiet:
@@ -91,15 +101,35 @@ async def run(platform, number=20, concurrency=5, timeout=60, sort_by="popular",
 
     if spec and spec.legacy_mode:
         from crawler.tester import test_top_models
-        await test_top_models(
-            limit=number,
-            concurrency=concurrency,
-            use_logger=resume,
-            resume=resume,
-            sort_by=sort_by,
-            filter_text_models=filter_text,
-            reasoning_timeout=max(timeout * 3, 180),
-        )
+        try:
+            if max_time > 0:
+                if not quiet:
+                    print(f"⏱️ 总时间限制: {max_time}s")
+                await asyncio.wait_for(
+                    test_top_models(
+                        limit=number,
+                        concurrency=concurrency,
+                        use_logger=resume,
+                        resume=resume,
+                        sort_by=sort_by,
+                        filter_text_models=filter_text,
+                        reasoning_timeout=max(timeout * 3, 180),
+                    ),
+                    timeout=max_time,
+                )
+            else:
+                await test_top_models(
+                    limit=number,
+                    concurrency=concurrency,
+                    use_logger=resume,
+                    resume=resume,
+                    sort_by=sort_by,
+                    filter_text_models=filter_text,
+                    reasoning_timeout=max(timeout * 3, 180),
+                )
+        except asyncio.TimeoutError:
+            if not quiet:
+                print(f"\n⏰ 总时间已达 {max_time}s 上限，提前结束测试")
     else:
         tester = create_component(platform, "tester", api_key=api_key)
         results = await tester.batch_test(models, concurrency=concurrency,
