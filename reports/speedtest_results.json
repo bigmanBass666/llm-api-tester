@@ -1,0 +1,173 @@
+[
+  {
+    "id": "01-ai/yi-large",
+    "status": "failed",
+    "time": 5.93,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "abacusai/dracarys-llama-3.1-70b-instruct",
+    "status": "success",
+    "time": 5.67
+  },
+  {
+    "id": "adept/fuyu-8b",
+    "status": "failed",
+    "time": 1.65,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "ai21labs/jamba-1.5-large-instruct",
+    "status": "failed",
+    "time": 4.28,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "aisingapore/sea-lion-7b-instruct",
+    "status": "failed",
+    "time": 5.85,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "baai/bge-m3",
+    "status": "failed",
+    "time": 1.45,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "bigcode/starcoder2-15b",
+    "status": "failed",
+    "time": 2.52,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "bytedance/seed-oss-36b-instruct",
+    "status": "timeout",
+    "time": 20.79
+  },
+  {
+    "id": "databricks/dbrx-instruct",
+    "status": "failed",
+    "time": 1.65,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "deepseek-ai/deepseek-coder-6.7b-instruct",
+    "status": "failed",
+    "time": 1.43,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "deepseek-ai/deepseek-v4-flash",
+    "status": "error",
+    "time": 5.9,
+    "error": "[WinError 10054] 远程主机强迫关闭了一个现有的连接。"
+  },
+  {
+    "id": "deepseek-ai/deepseek-v4-pro",
+    "status": "success",
+    "time": 4.97
+  },
+  {
+    "id": "google/codegemma-1.1-7b",
+    "status": "failed",
+    "time": 3.99,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "google/codegemma-7b",
+    "status": "failed",
+    "time": 1.54,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "google/deplot",
+    "status": "failed",
+    "time": 2.38,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "google/gemma-2-2b-it",
+    "status": "success",
+    "time": 5.78
+  },
+  {
+    "id": "google/gemma-2b",
+    "status": "failed",
+    "time": 1.33,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "google/gemma-3-12b-it",
+    "status": "failed",
+    "time": 6.74,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "google/gemma-3-4b-it",
+    "status": "failed",
+    "time": 6.08,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "google/gemma-3n-e2b-it",
+    "status": "success",
+    "time": 1.81
+  },
+  {
+    "id": "google/gemma-3n-e4b-it",
+    "status": "success",
+    "time": 5.59
+  },
+  {
+    "id": "google/gemma-4-31b-it",
+    "status": "timeout",
+    "time": 16.16
+  },
+  {
+    "id": "google/recurrentgemma-2b",
+    "status": "failed",
+    "time": 4.36,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "ibm/granite-3.0-3b-a800m-instruct",
+    "status": "failed",
+    "time": 2.33,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "ibm/granite-3.0-8b-instruct",
+    "status": "failed",
+    "time": 1.35,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "ibm/granite-34b-code-instruct",
+    "status": "failed",
+    "time": 1.41,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "ibm/granite-8b-code-instruct",
+    "status": "failed",
+    "time": 1.38,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "meta/codellama-70b",
+    "status": "failed",
+    "time": 7.29,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "meta/llama-3.1-70b-instruct",
+    "status": "timeout",
+    "time": 16.03
+  },
+  {
+    "id": "meta/llama-3.1-8b-instruct",
+    "status": "success",
+    "time": 2.42
+  }
+]

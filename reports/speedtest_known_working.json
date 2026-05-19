@@ -1,0 +1,132 @@
+[
+  {
+    "id": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+    "status": "failed",
+    "time": 1.47,
+    "error": "HTTP 400"
+  },
+  {
+    "id": "nvidia/nemotron-3-super-120b-a12b",
+    "status": "success",
+    "time": 11.49
+  },
+  {
+    "id": "nvidia/nemotron-3-nano-30b-a3b",
+    "status": "success",
+    "time": 10.84
+  },
+  {
+    "id": "nvidia/nemotron-3-content-safety",
+    "status": "error",
+    "time": 5.75,
+    "error": "[WinError 10054] 远程主机强迫关闭了一个现有的连接。"
+  },
+  {
+    "id": "nvidia/gliner-pii",
+    "status": "success",
+    "time": 4.36
+  },
+  {
+    "id": "nvidia/ising-calibration-1-35b-a3b",
+    "status": "success",
+    "time": 1.42
+  },
+  {
+    "id": "google/gemma-3n-e2b-it",
+    "status": "success",
+    "time": 5.64
+  },
+  {
+    "id": "google/gemma-4-31b-it",
+    "status": "error",
+    "time": 31.03,
+    "error": "The read operation timed out"
+  },
+  {
+    "id": "meta/llama-3.1-8b-instruct",
+    "status": "success",
+    "time": 8.61
+  },
+  {
+    "id": "meta/llama-3.3-70b-instruct",
+    "status": "success",
+    "time": 7.02
+  },
+  {
+    "id": "meta/llama-4-maverick-17b-128e-instruct",
+    "status": "success",
+    "time": 6.45
+  },
+  {
+    "id": "mistralai/mistral-small-4-119b-2603",
+    "status": "success",
+    "time": 5.73
+  },
+  {
+    "id": "mistralai/mistral-nemotron",
+    "status": "error",
+    "time": 31.04,
+    "error": "The read operation timed out"
+  },
+  {
+    "id": "mistralai/mistral-medium-3.5-128b",
+    "status": "error",
+    "time": 34.76,
+    "error": "The read operation timed out"
+  },
+  {
+    "id": "deepseek-ai/deepseek-v4-flash",
+    "status": "error",
+    "time": 33.89,
+    "error": "The read operation timed out"
+  },
+  {
+    "id": "deepseek-ai/deepseek-v4-pro",
+    "status": "error",
+    "time": 31.02,
+    "error": "The read operation timed out"
+  },
+  {
+    "id": "openai/gpt-oss-120b",
+    "status": "success",
+    "time": 5.56
+  },
+  {
+    "id": "openai/gpt-oss-20b",
+    "status": "success",
+    "time": 1.26
+  },
+  {
+    "id": "minimaxai/minimax-m2.7",
+    "status": "error",
+    "time": 31.0,
+    "error": "The read operation timed out"
+  },
+  {
+    "id": "moonshotai/kimi-k2.6",
+    "status": "success",
+    "time": 2.56
+  },
+  {
+    "id": "z-ai/glm-5.1",
+    "status": "error",
+    "time": 36.14,
+    "error": "The read operation timed out"
+  },
+  {
+    "id": "stepfun-ai/step-3.5-flash",
+    "status": "success",
+    "time": 1.35
+  },
+  {
+    "id": "qwen/qwen3.5-122b-a10b",
+    "status": "error",
+    "time": 34.99,
+    "error": "The read operation timed out"
+  },
+  {
+    "id": "qwen/qwen3-next-80b-a3b-instruct",
+    "status": "success",
+    "time": 1.92
+  }
+]
