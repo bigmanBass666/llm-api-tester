@@ -18,6 +18,18 @@ platforms:
     description: "NVIDIA NIM 提供的多种开源大模型 API，包含 Qwen、DeepSeek、Llama、GLM 等"
     website: "https://build.nvidia.com"
 
+    # 收藏模型（快速测试用）
+    favorites:
+      - stepfun-ai/step-3.5-flash
+      - moonshotai/kimi-k2.6
+      - z-ai/glm-5.1
+      - z-ai/glm-4.7
+      - minimaxai/minimax-m2.7
+      - minimaxai/minimax-m2.5
+      - deepseek-ai/deepseek-v4-flash
+      - deepseek-ai/deepseek-v4-pro
+      - nvidia/nemotron-3-super-120b-a12b
+
     # 爬虫配置
     scraper:
       base_url: "https://build.nvidia.com"

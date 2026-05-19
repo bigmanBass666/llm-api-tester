@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import asyncio
+import yaml
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -11,7 +12,8 @@ from src.models import ChatMessage, ModelType
 
 
 async def run(platform, number=20, concurrency=5, timeout=60, max_time=0, sort_by="popular",
-              model_type="all", scrape_only=False, resume=False, filter_text=True, quiet=False, usecase=None):
+              model_type="all", scrape_only=False, resume=False, filter_text=True, quiet=False,
+              usecase=None, favorites=False):
     ensure_platform_registered(platform)
     api_key = get_api_key(platform)
     spec = get_platform_spec(platform)
@@ -42,7 +44,27 @@ async def run(platform, number=20, concurrency=5, timeout=60, max_time=0, sort_b
     elif model_type == "image":
         model_type_filter = ModelType.IMAGE_GENERATION
 
-    if spec and spec.legacy_mode:
+    # 收藏模型模式
+    if favorites:
+        import yaml
+        config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'configs', 'platforms.yaml')
+        with open(config_path) as f:
+            all_configs = yaml.safe_load(f)
+        platform_config = all_configs.get('platforms', {}).get(platform, {})
+        fav_ids = platform_config.get('favorites', [])
+        if fav_ids:
+            if not quiet:
+                print(f"⭐ 收藏模型模式: {len(fav_ids)} 个模型")
+            client = registry.create_client(platform, api_key=api_key)
+            all_models = client.list_models()
+            client.close()
+            models = [m for m in all_models if m.id in fav_ids]
+            order = {mid: i for i, mid in enumerate(fav_ids)}
+            models.sort(key=lambda m: order.get(m.id, 999))
+        else:
+            print("⚠️ 未配置收藏模型，请在 platforms.yaml 中添加 favorites 字段")
+            return
+    elif spec and spec.legacy_mode:
         from crawler.scraper import scrape_top_models
         models = await scrape_top_models(number, sort_by=sort_by,
                                          model_type_filter=model_type_filter,

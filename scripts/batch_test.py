@@ -94,6 +94,8 @@ def main():
                      help="安静模式，减少输出")
     adv.add_argument("--probe-hosted", action="store_true",
                      help="探测哪些模型真正有托管端点（发送最小 chat 请求）")
+    adv.add_argument("--favorites", action="store_true",
+                     help="仅测试收藏模型（需在 platforms.yaml 中配置）")
 
     args = parser.parse_args()
 
@@ -145,6 +147,7 @@ def main():
             filter_text=not args.no_filter,
             quiet=args.quiet,
             usecase=args.usecase,
+            favorites=args.favorites,
         ))
 
     else:
