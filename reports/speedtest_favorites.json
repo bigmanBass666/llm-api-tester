@@ -1,0 +1,54 @@
+[
+  {
+    "id": "stepfun-ai/step-3.5-flash",
+    "status": "success",
+    "time": 3.06
+  },
+  {
+    "id": "moonshotai/kimi-k2.6",
+    "status": "error",
+    "time": 34.8,
+    "error": "The read operation timed out"
+  },
+  {
+    "id": "z-ai/glm-5.1",
+    "status": "error",
+    "time": 31.15,
+    "error": "The read operation timed out"
+  },
+  {
+    "id": "z-ai/glm-4.7",
+    "status": "failed",
+    "time": 1.7,
+    "error": "HTTP 404"
+  },
+  {
+    "id": "minimaxai/minimax-m2.7",
+    "status": "error",
+    "time": 35.33,
+    "error": "The read operation timed out"
+  },
+  {
+    "id": "minimaxai/minimax-m2.5",
+    "status": "failed",
+    "time": 2.44,
+    "error": "HTTP 410"
+  },
+  {
+    "id": "deepseek-ai/deepseek-v4-flash",
+    "status": "error",
+    "time": 31.07,
+    "error": "The read operation timed out"
+  },
+  {
+    "id": "deepseek-ai/deepseek-v4-pro",
+    "status": "error",
+    "time": 31.02,
+    "error": "The read operation timed out"
+  },
+  {
+    "id": "nvidia/nemotron-3-super-120b-a12b",
+    "status": "success",
+    "time": 1.93
+  }
+]
