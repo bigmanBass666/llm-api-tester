@@ -5,10 +5,11 @@
 | 组件 | 状态 | 说明 |
 |------|------|------|
 | Clash 代理 | ✅ 运行中 | 系统代理 127.0.0.1:3067 |
-| agent-browser | ✅ 可用 | 可访问 Colab（需代理） |
+| agent-browser | ✅ 可用 | 已登录，session 已保存 |
 | Colab MCP Server | ✅ 已安装 | 位于项目虚拟环境中 |
-| Google 登录 | ⚠️ 需手动 | 安全风控阻止自动化登录 |
+| Google 登录 | ✅ 已完成 | bigmanbass666@gmail.com |
 | MCP 配置 | ✅ 已更新 | `.claude.json` 已指向 Windows 路径 |
+| Session 状态 | ✅ 已保存 | `colab_auth.json` 可复用 |
 
 ---
 
@@ -22,14 +23,28 @@
 ```
 这将重载 MCP 配置，启用 `colab-mcp`。
 
-### 2. 手动登录 Google（一次性）
+### 2. 使用 agent-browser 登录（已完成的参数组合）
 
-由于 Google 安全风控，**首次**需要在用户自己的 Chrome 中登录：
+Google 对自动化浏览器有严格风控。成功登录的参数组合：
 
-1. 确保 Clash 在运行（系统托盘有图标）
-2. 打开 Chrome，访问 https://colab.research.google.com
-3. 使用账号 `bigmanbass666@gmail.com` 登录
-4. 登录成功后，后续可通过 Colab MCP 自动化
+```bash
+agent-browser open https://colab.research.google.com \
+  --headed \
+  --profile "Default" \
+  --args "--disable-blink-features=AutomationControlled"
+```
+
+**关键要点**：
+- `--profile "Default"`：必须加载用户 Chrome profile，否则 Google 拒绝
+- `--args "--disable-blink-features=AutomationControlled"`：必须隐藏自动化标记
+- 系统代理（不指定 `--proxy`）比显式代理更不容易被风控
+- 登录后如提示添加辅助电话号码，点击"取消"即可跳过
+
+**复用登录状态**：
+```bash
+agent-browser state save ./colab_auth.json   # 保存
+agent-browser open https://colab.research.google.com --state ./colab_auth.json  # 恢复
+```
 
 ### 3. 使用 Colab MCP
 
