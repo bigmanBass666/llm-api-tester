@@ -8,11 +8,7 @@ import os
 from datetime import datetime
 from typing import List, Optional
 
-import sys
-import os as os_module
-sys.path.insert(0, os_module.path.dirname(os_module.path.dirname(os_module.path.abspath(__file__))))
 from src.models import TestResult, TestReport
-
 
 class MarkdownFormatter:
     """Markdown 报告格式化器"""
@@ -209,7 +205,6 @@ class MarkdownFormatter:
         with open(filepath, 'w', encoding='utf-8') as f:
             f.write(content)
 
-
 class JsonFormatter:
     """JSON 报告格式化器"""
 
@@ -232,7 +227,6 @@ class JsonFormatter:
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         with open(filepath, 'w', encoding='utf-8') as f:
             f.write(content)
-
 
 class ReportGenerator:
     """报告生成器（统一入口）"""

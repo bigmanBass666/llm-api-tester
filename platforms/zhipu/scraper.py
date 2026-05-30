@@ -5,12 +5,8 @@
 
 from typing import List
 
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from src.models import ModelInfo
 from platforms.base.base_scraper import BaseScraper
-
 
 class ZhipuScraper(BaseScraper):
     """智谱模型爬虫（使用预定义列表）"""

@@ -1,24 +1,28 @@
 """
-NVIDIA 模型批量测试 - 主入口
-支持按官方热度排序测试前N个模型
+NVIDIA 模型批量测试 - 主入口（已废弃）
+
+⚠️ DEPRECATED: 此入口已废弃，请使用统一 CLI：
+    python scripts/batch_test.py -p nvidia -n 20
+
+此文件保留仅为向后兼容，所有功能已在 scripts/batch_test.py 中实现。
 """
+
+import warnings
+warnings.warn(
+    "crawler/main.py 已废弃，请使用 scripts/batch_test.py -p nvidia",
+    DeprecationWarning, stacklevel=1
+)
 
 import asyncio
 import argparse
 import sys
-import os
 
-# 添加项目根目录到路径
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-# 加载环境变量（从 .env.local 等文件）
 from src.config_loader import ConfigLoader
 ConfigLoader.load_env()
 
 from crawler.tester import test_top_models
 from crawler.scraper import scrape_top_models
 from crawler.models import ModelStore
-
 
 def print_banner():
     """打印横幅"""
@@ -34,10 +38,13 @@ def print_banner():
 """
     print(banner)
 
-
 async def main():
     """主函数"""
-    parser = argparse.ArgumentParser(description="NVIDIA 模型批量测试")
+    print("⚠️  DEPRECATED: crawler/main.py 已废弃")
+    print("   请改用: python scripts/batch_test.py -p nvidia [选项]")
+    print("   新 CLI 支持多平台、推理模型控制、收藏模式等功能\n")
+
+    parser = argparse.ArgumentParser(description="NVIDIA 模型批量测试（已废弃）")
     parser.add_argument("-n", "--number", type=int, default=20,
                        help="测试的模型数量 (默认: 20)")
     parser.add_argument("-c", "--concurrency", type=int, default=5,
@@ -151,7 +158,6 @@ async def main():
             print(f"\n❌ 程序异常: {e}")
         import traceback
         traceback.print_exc()
-
 
 if __name__ == "__main__":
     try:

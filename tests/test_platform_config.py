@@ -5,12 +5,9 @@
 
 import pytest
 import tempfile
-import os
 from pathlib import Path
 
 # 确保可以导入 src 模块
-import sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.platform_config import (
     PlatformConfigLoader,
@@ -18,7 +15,6 @@ from src.platform_config import (
     ClientConfig,
     PlatformConfig,
 )
-
 
 class TestPlatformConfigLoader:
     """PlatformConfigLoader 测试类"""
@@ -211,7 +207,6 @@ class TestPlatformConfigLoader:
         assert config.scraper is None
         assert config.client is None
 
-
 class TestConfigurationConsistency:
     """配置一致性测试"""
 
@@ -256,7 +251,6 @@ class TestConfigurationConsistency:
             assert 'NON_TEXT_KEYWORDS = [' not in content or 'NON_TEXT_KEYWORDS' not in content.split('from src.platform_config')[0]
             assert 'SELECTORS = {' not in content or 'SELECTORS' not in content.split('from src.platform_config')[0]
 
-
 class TestEdgeCases:
     """边界情况测试"""
 
@@ -288,7 +282,6 @@ class TestEdgeCases:
         client_config = PlatformConfigLoader.get_client_config('zhipu')
         # 应该返回 None 或空配置
         assert client_config is None or isinstance(client_config, ClientConfig)
-
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

@@ -8,12 +8,8 @@ from typing import List, Optional, Dict, Callable
 import asyncio
 import httpx
 from openai import OpenAI
-import sys
-import os
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from src.models import ModelInfo, TestResult, ModelType
-
 
 class BaseTester:
     """测试器基类，所有平台测试器需继承此类

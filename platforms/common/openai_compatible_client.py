@@ -4,17 +4,13 @@
 适用于所有兼容 OpenAI API 格式的平台（如 Kimi、MiniMax 等）
 """
 
-import os
-import sys
 import time
 from typing import AsyncIterator, List, Optional
 import httpx
 from openai import OpenAI
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from src.models import ModelInfo, ChatMessage
 from platforms.base.base_client import BasePlatformClient
-
 
 class OpenAICompatibleClient(BasePlatformClient):
     """通用 OpenAI 兼容客户端"""
@@ -95,7 +91,6 @@ class OpenAICompatibleClient(BasePlatformClient):
         if self._client:
             self._client.close()
             self._client = None
-
 
 class AnthropicCompatibleClient(BasePlatformClient):
     """Anthropic Messages API 兼容客户端
@@ -200,10 +195,8 @@ class AnthropicCompatibleClient(BasePlatformClient):
             self._http_client.close()
             self._http_client = None
 
-
 # 向后兼容别名
 KimiClient = AnthropicCompatibleClient
-
 
 class MiniMaxClient(OpenAICompatibleClient):
     """MiniMax 客户端"""

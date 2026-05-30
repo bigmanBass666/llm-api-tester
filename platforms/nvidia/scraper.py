@@ -10,12 +10,10 @@ import ssl
 from typing import List, Dict, Optional
 import httpx
 
-import sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from src.models import ModelInfo, ModelType
+from src.model_classifier import ModelClassifier
 from platforms.base.base_scraper import BaseScraper
 from src.platform_config import PlatformConfigLoader
-
 
 class NvidiaScraper(BaseScraper):
     """NVIDIA 模型爬虫"""
@@ -52,15 +50,8 @@ class NvidiaScraper(BaseScraper):
             'api_connect_timeout_s': config.api_connect_timeout_s,
         }
 
+        self._classifier = ModelClassifier(self.platform_name)
         self.SELECTORS = config.selectors
-        self.TEXT_MODEL_CATEGORIES = config.text_model_categories
-        self.NON_TEXT_KEYWORDS = config.non_text_keywords
-        self.IMAGE_MODEL_CATEGORIES = config.image_model_categories
-        self.IMAGE_MODEL_KEYWORDS = config.image_model_keywords
-        self.MULTIMODAL_CATEGORIES = config.multimodal_categories
-        self.MULTIMODAL_KEYWORDS = config.multimodal_keywords
-        self.SPEECH_CATEGORIES = config.speech_categories
-        self.SPEECH_KEYWORDS = config.speech_keywords
         self.USECASE_FILTERS = config.usecase_filters
 
     async def scrape(self, limit: int = 50, sort_by: str = "popular", sort_order: str = "DESC", usecase_filter: Optional[str] = None) -> List[ModelInfo]:
@@ -332,9 +323,8 @@ class NvidiaScraper(BaseScraper):
                     # 确定最终模型 ID
                     final_id = full_model_id if full_model_id else model_name
 
-                    # 判断是否为文字模型
-                    from src.models import ModelType
-                    classified_type = self._classify_model_type(category, final_id)
+                    # 判断模型类型
+                    classified_type = self._classifier.classify(final_id, category)
 
                     model = ModelInfo(
                         id=final_id,
@@ -439,36 +429,6 @@ class NvidiaScraper(BaseScraper):
 
         print(f"⚠️ 经过 {max_retries} 次尝试后仍无法获取 API 映射表")
         return model_map
-
-    def _classify_model_type(self, category: Optional[str], model_id: str) -> 'ModelType':
-        from src.models import ModelType
-        if category:
-            if category in self.IMAGE_MODEL_CATEGORIES:
-                return ModelType.IMAGE_GENERATION
-            if category in self.MULTIMODAL_CATEGORIES:
-                return ModelType.MULTIMODAL
-            if category in self.SPEECH_CATEGORIES:
-                return ModelType.SPEECH
-            if category in self.TEXT_MODEL_CATEGORIES:
-                return ModelType.TEXT
-            if any(kw in category for kw in ['embedding', 'extraction']):
-                return ModelType.EMBEDDING
-            if any(kw in category for kw in ['image-editing', 'image editing']):
-                return ModelType.IMAGE_EDITING
-        model_id_lower = model_id.lower()
-        for keyword in self.IMAGE_MODEL_KEYWORDS:
-            if keyword in model_id_lower:
-                return ModelType.IMAGE_GENERATION
-        for keyword in self.MULTIMODAL_KEYWORDS:
-            if keyword in model_id_lower:
-                return ModelType.MULTIMODAL
-        for keyword in self.SPEECH_KEYWORDS:
-            if keyword in model_id_lower:
-                return ModelType.SPEECH
-        for keyword in self.NON_TEXT_KEYWORDS:
-            if keyword in model_id_lower:
-                return ModelType.EMBEDDING
-        return ModelType.TEXT
 
     async def _go_to_next_page(self) -> bool:
         """
@@ -612,7 +572,6 @@ class NvidiaScraper(BaseScraper):
 
         # 返回原值（可能已经是完整 ID）
         return short_name
-
 
 async def scrape_top_models(limit: int = 50, sort_by: str = "popular", model_type_filter: Optional['ModelType'] = None, usecase_filter: Optional[str] = None) -> List[ModelInfo]:
     """爬取前N个热门模型（便捷函数）

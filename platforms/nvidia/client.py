@@ -9,13 +9,11 @@ from typing import Optional, List, Iterator
 import httpx
 from openai import OpenAI
 
-import sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from src.models import ModelInfo, ChatMessage
+from src.model_classifier import ModelClassifier
 from platforms.common.openai_compatible_client import OpenAICompatibleClient
 from src.platform_registry import register_platform
 from src.platform_config import PlatformConfigLoader
-
 
 class NvidiaClient(OpenAICompatibleClient):
     """NVIDIA NIM API 客户端"""
@@ -42,6 +40,7 @@ class NvidiaClient(OpenAICompatibleClient):
             raise ValueError(f"未找到 {self.platform_name} 平台的配置，请检查 configs/platforms.yaml")
 
         self._platform_base_url = config.base_url or "https://integrate.api.nvidia.com/v1"
+        self._classifier = ModelClassifier(self.platform_name)
 
     @property
     def client(self) -> OpenAI:
@@ -185,9 +184,8 @@ class NvidiaClient(OpenAICompatibleClient):
                           created: int = None, tags: list = None) -> 'ModelInfo':
         """统一的 ModelInfo 构建逻辑"""
         from platforms.common.utils import parse_model_id
-        from src.models import ModelType
         id_vendor, short_name = parse_model_id(model_id)
-        model_type = self._classify_by_id(model_id)
+        model_type = self._classifier.classify(model_id)
 
         return ModelInfo(
             id=model_id,
@@ -202,25 +200,6 @@ class NvidiaClient(OpenAICompatibleClient):
             api_owned_by=owned_by,
             tags=tags or None,
         )
-
-    @classmethod
-    def _classify_by_id(cls, model_id: str) -> 'ModelType':
-        from src.models import ModelType
-        from src.platform_config import PlatformConfigLoader
-
-        scraper_config = PlatformConfigLoader.get_scraper_config("nvidia")
-        mid = model_id.lower()
-
-        for kw in scraper_config.image_model_keywords:
-            if kw in mid:
-                return ModelType.IMAGE_GENERATION
-        for kw in scraper_config.multimodal_keywords:
-            if kw in mid:
-                return ModelType.MULTIMODAL
-        for kw in scraper_config.speech_keywords:
-            if kw in mid:
-                return ModelType.SPEECH
-        return ModelType.TEXT
 
     def _raw_model_to_info(self, raw: dict) -> 'ModelInfo':
         model_id = raw.get("id", "")
@@ -253,7 +232,6 @@ class NvidiaClient(OpenAICompatibleClient):
         if self._client:
             self._client.close()
             self._client = None
-
 
 # 注册平台（使用装饰器）
 NvidiaClient = register_platform(

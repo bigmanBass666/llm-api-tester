@@ -1,25 +1,18 @@
 """Pytest 全局 fixtures — 为核心模块单元测试提供 mock 环境"""
 
-import os
-import sys
 import asyncio
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-
 import pytest
-
 
 @pytest.fixture(scope="session")
 def mock_api_key():
     """Mock NVIDIA API Key"""
     return "nvapi-test-mock-key-for-unit-tests"
 
-
 @pytest.fixture(scope="session")
 def mock_base_url():
     """Mock NVIDIA Base URL"""
     return "https://integrate.api.nvidia.com/v1"
-
 
 @pytest.fixture
 def sample_model_info():
@@ -36,7 +29,6 @@ def sample_model_info():
         test_status=TestStatus.PENDING.value,
     )
 
-
 @pytest.fixture
 def sample_success_model():
     """返回一个测试成功的 ModelInfo"""
@@ -51,7 +43,6 @@ def sample_success_model():
         token_usage=100,
     )
 
-
 @pytest.fixture
 def sample_failed_model():
     """返回一个测试失败的 ModelInfo"""
@@ -64,7 +55,6 @@ def sample_failed_model():
         error_message="Model not found (404)",
         test_status=TestStatus.FAILED.value,
     )
-
 
 @pytest.fixture
 def sample_timeout_model():
@@ -79,7 +69,6 @@ def sample_timeout_model():
         test_status=TestStatus.TIMEOUT.value,
         error_message="Request timed out",
     )
-
 
 @pytest.fixture
 def sample_reasoning_model():

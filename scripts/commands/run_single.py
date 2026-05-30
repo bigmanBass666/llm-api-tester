@@ -1,13 +1,8 @@
 import time
-import os
-import sys
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from src import registry
 from src.models import ChatMessage
 from src.platform_registry import ensure_platform_registered, get_api_key
-
 
 def run(model_id: str, platform: str = "nvidia", message: str = "请回复'OK'", verbose: bool = True) -> dict:
     ensure_platform_registered(platform)

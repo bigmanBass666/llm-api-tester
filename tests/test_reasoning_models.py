@@ -1,25 +1,9 @@
-import sys
-import os
-import importlib.util
-import dataclasses
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
-_spec = importlib.util.spec_from_file_location(
-    "crawler.models",
-    os.path.join(os.path.dirname(__file__), "..", "crawler", "models.py"),
+from crawler.models import (
+    REASONING_MODELS,
+    REASONING_MODEL_PATTERNS,
+    is_reasoning_model,
+    get_reasoning_effort,
 )
-_module = importlib.util.module_from_spec(_spec)
-_module.dataclass = dataclasses.dataclass
-_module.field = dataclasses.field
-sys.modules["crawler.models"] = _module
-_spec.loader.exec_module(_module)
-
-REASONING_MODELS = _module.REASONING_MODELS
-REASONING_MODEL_PATTERNS = _module.REASONING_MODEL_PATTERNS
-is_reasoning_model = _module.is_reasoning_model
-get_reasoning_effort = _module.get_reasoning_effort
-
 
 class TestIsReasoningModelExactMatch:
     def test_exact_match_deepseek_v4_flash(self):
@@ -34,14 +18,12 @@ class TestIsReasoningModelExactMatch:
     def test_exact_match_glm47(self):
         assert is_reasoning_model("z-ai/glm-4.7") is True
 
-
 class TestIsReasoningModelPartialMatch:
     def test_partial_match_id_part(self):
         assert is_reasoning_model("deepseek-ai/deepseek-v4-flash") is True
 
     def test_partial_not_in_set_but_matches_pattern(self):
         assert is_reasoning_model("vendor/deepseek-v4-turbo") is True
-
 
 class TestIsReasoningModelPattern:
     def test_pattern_deepseek(self):
@@ -59,7 +41,6 @@ class TestIsReasoningModelPattern:
     def test_pattern_thinking_keyword(self):
         assert is_reasoning_model("vendor/thinking-model") is True
 
-
 class TestIsReasoningModelCaseInsensitive:
     def test_case_insensitive_uppercase(self):
         assert is_reasoning_model("DEEPSEEK-AI/DEEPSEEK-V4-FLASH") is True
@@ -68,7 +49,6 @@ class TestIsReasoningModelCaseInsensitive:
     def test_case_insensitive_mixed(self):
         assert is_reasoning_model("DeepSeek-AI/DeepSeek-V4-Pro") is True
         assert is_reasoning_model("Z-Ai/Glm-4.7") is True
-
 
 class TestIsReasoningModelNegative:
     def test_normal_models_return_false(self):
@@ -85,7 +65,6 @@ class TestIsReasoningModelNegative:
 
     def test_no_vendor_prefix_non_matching(self):
         assert is_reasoning_model("some-random-model") is False
-
 
 class TestGetReasoningEffort:
     def test_deepseek_high_effort(self):
@@ -105,7 +84,6 @@ class TestGetReasoningEffort:
     def test_effort_case_insensitive(self):
         assert get_reasoning_effort("DEEPSEEK-AI/DEEPSEEK-V4") == "high"
         assert get_reasoning_effort("Z-AI/GLM-5") == "medium"
-
 
 class TestConstants:
     def test_reasoning_models_set_not_empty(self):

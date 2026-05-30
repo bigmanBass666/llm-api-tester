@@ -1,14 +1,10 @@
 import os
-import sys
 import asyncio
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from src import registry
 from src.platform_config import PlatformConfigLoader
 from src.platform_registry import ensure_platform_registered
 from src.models import ModelType
-
 
 def list_platforms():
     configs = PlatformConfigLoader.load_all()
@@ -25,7 +21,6 @@ def list_platforms():
             env_display = key_env
             status = "\u2705" if os.getenv(key_env) else "\u274c"
         print(f"{name:<12}{cfg.display_name:<20}{env_display:<24}{status}")
-
 
 async def list_models(platform: str):
     ensure_platform_registered(platform)
@@ -56,7 +51,6 @@ async def list_models(platform: str):
             print(f"\n共 {total} 个模型")
     finally:
         client.close()
-
 
 async def scrape_only(platform: str, number: int = 20, sort_by: str = "popular", model_type: str = "all", filter_text: bool = True, quiet: bool = False, usecase: str = None):
     ensure_platform_registered(platform)

@@ -1,7 +1,4 @@
-import sys
-import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from src.models import (
     ModelInfo,
@@ -12,7 +9,6 @@ from src.models import (
     ReasoningEffort,
     ModelType,
 )
-
 
 def test_model_info_defaults():
     m = ModelInfo(id="test", name="Test")
@@ -39,7 +35,6 @@ def test_model_info_defaults():
     assert m.api_owned_by is None
     assert m.is_hosted is None
 
-
 def test_model_info_status_icon():
     assert ModelInfo(id="a", name="A", test_status="pending").status_icon == "\u23f3"
     assert ModelInfo(id="a", name="A", test_status="testing").status_icon == "\U0001f504"
@@ -47,7 +42,6 @@ def test_model_info_status_icon():
     assert ModelInfo(id="a", name="A", test_status="failed").status_icon == "\u274c"
     assert ModelInfo(id="a", name="A", test_status="timeout").status_icon == "\u23f0"
     assert ModelInfo(id="a", name="A", test_status="unknown").status_icon == "\u2753"
-
 
 def test_model_info_to_dict():
     m = ModelInfo(
@@ -77,31 +71,26 @@ def test_model_info_to_dict():
     assert d["category"] == "reasoning"
     assert d["error"] == "none"
 
-
 def test_model_info_to_dict_error_truncation():
     long_err = "x" * 300
     m = ModelInfo(id="a", name="A", error_message=long_err)
     d = m.to_dict()
     assert len(d["error"]) == 200
 
-
 def test_model_info_to_dict_empty_tags():
     m = ModelInfo(id="a", name="A", tags=None)
     d = m.to_dict()
     assert d["tags"] == []
-
 
 def test_chat_message_to_dict():
     msg = ChatMessage(role="user", content="hello")
     d = msg.to_dict()
     assert d == {"role": "user", "content": "hello"}
 
-
 def test_chat_message_fields():
     msg = ChatMessage(role="assistant", content="hi there")
     assert msg.role == "assistant"
     assert msg.content == "hi there"
-
 
 def test_test_result_defaults():
     r = TestResult(model_id="m1")
@@ -119,7 +108,6 @@ def test_test_result_defaults():
     assert r.created_at is None
     assert r.api_owned_by is None
     assert r.is_hosted is None
-
 
 def test_test_result_to_dict():
     r = TestResult(
@@ -146,7 +134,6 @@ def test_test_result_to_dict():
     assert d["tags"] == ["free"]
     assert d["token_usage"] == 42
 
-
 def test_model_info_to_dict_includes_api_fields():
     m = ModelInfo(
         id="meta/llama-3.3",
@@ -159,7 +146,6 @@ def test_model_info_to_dict_includes_api_fields():
     assert d["created_at"] == 1724000000
     assert d["api_owned_by"] == "meta"
 
-
 def test_test_result_to_dict_includes_api_fields():
     r = TestResult(
         model_id="meta/llama-3.3",
@@ -169,7 +155,6 @@ def test_test_result_to_dict_includes_api_fields():
     d = r.to_dict()
     assert d["created_at"] == 1724000000
     assert d["api_owned_by"] == "meta"
-
 
 def test_test_result_to_dict_truncation():
     long_preview = "y" * 200
@@ -183,12 +168,10 @@ def test_test_result_to_dict_truncation():
     assert len(d["response_preview"]) == 100
     assert len(d["error_message"]) == 200
 
-
 def test_test_result_to_dict_empty_tags():
     r = TestResult(model_id="a", tags=None)
     d = r.to_dict()
     assert d["tags"] == []
-
 
 def test_test_report_to_dict_basic():
     report = TestReport(
@@ -213,12 +196,10 @@ def test_test_report_to_dict_basic():
     assert stats["pending"] == 0
     assert stats["success_rate"] == "80.0%"
 
-
 def test_test_report_to_dict_zero_total():
     report = TestReport(timestamp="t", total=0, success=0)
     d = report.to_dict()
     assert d["statistics"]["success_rate"] == "N/A"
-
 
 def test_test_report_to_dict_with_results():
     results = [
@@ -233,19 +214,16 @@ def test_test_report_to_dict_with_results():
     assert d["results"][1]["model_id"] == "b"
     assert d["results"][1]["status"] == "failed"
 
-
 def test_test_report_to_dict_raw_dicts_as_results():
     raw_results = [{"model_id": "x"}, {"model_id": "y"}]
     report = TestReport(timestamp="t", results=raw_results)
     d = report.to_dict()
     assert d["results"] == raw_results
 
-
 def test_test_report_to_dict_none_results():
     report = TestReport(timestamp="t", results=None)
     d = report.to_dict()
     assert d["results"] == []
-
 
 def test_enums_test_status_values():
     assert TestStatus.PENDING.value == "pending"
@@ -255,43 +233,35 @@ def test_enums_test_status_values():
     assert TestStatus.TIMEOUT.value == "timeout"
     assert len(TestStatus) == 5
 
-
 def test_enums_reasoning_effort_values():
     assert ReasoningEffort.LOW.value == "low"
     assert ReasoningEffort.MEDIUM.value == "medium"
     assert ReasoningEffort.HIGH.value == "high"
     assert len(ReasoningEffort) == 3
 
-
 def test_enums_are_string_enums():
     assert isinstance(TestStatus.PENDING, str)
     assert isinstance(ReasoningEffort.HIGH, str)
-
 
 def test_model_info_is_callable_pending():
     m = ModelInfo(id="a", name="A", test_status="pending")
     assert m.is_callable is False
 
-
 def test_model_info_is_callable_success():
     m = ModelInfo(id="a", name="A", test_status="success")
     assert m.is_callable is True
-
 
 def test_model_info_is_callable_failed():
     m = ModelInfo(id="a", name="A", test_status="failed")
     assert m.is_callable is False
 
-
 def test_model_info_is_callable_timeout():
     m = ModelInfo(id="a", name="A", test_status="timeout")
     assert m.is_callable is False
 
-
 def test_model_info_is_callable_testing():
     m = ModelInfo(id="a", name="A", test_status="testing")
     assert m.is_callable is False
-
 
 def test_model_type_enum_values():
     assert ModelType.TEXT.value == "text"
@@ -302,28 +272,23 @@ def test_model_type_enum_values():
     assert ModelType.SPEECH.value == "speech"
     assert len(ModelType) == 6
 
-
 def test_model_type_is_string_enum():
     assert isinstance(ModelType.TEXT, str)
-
 
 def test_model_info_model_type_default():
     m = ModelInfo(id="a", name="A")
     assert m.model_type == ModelType.TEXT
     assert m.is_text_model is True
 
-
 def test_model_info_model_type_image():
     m = ModelInfo(id="a", name="A", model_type=ModelType.IMAGE_GENERATION)
     assert m.model_type == ModelType.IMAGE_GENERATION
     assert m.is_text_model is False
 
-
 def test_model_info_model_type_embedding():
     m = ModelInfo(id="a", name="A", model_type=ModelType.EMBEDDING)
     assert m.model_type == ModelType.EMBEDDING
     assert m.is_text_model is False
-
 
 def test_model_info_to_dict_includes_is_text_model():
     m = ModelInfo(id="a", name="A", model_type=ModelType.IMAGE_GENERATION)
@@ -331,16 +296,13 @@ def test_model_info_to_dict_includes_is_text_model():
     assert "is_text_model" in d
     assert d["is_text_model"] is False
 
-
 def test_test_result_model_type_default():
     r = TestResult(model_id="m1")
     assert r.model_type == "text"
 
-
 def test_test_result_model_type_image():
     r = TestResult(model_id="m1", model_type="image_generation")
     assert r.model_type == "image_generation"
-
 
 def test_test_result_to_dict_includes_model_type():
     r = TestResult(model_id="m1", model_type="image_generation")

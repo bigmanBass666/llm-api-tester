@@ -1,20 +1,18 @@
 import os
-import sys
 import time
 import asyncio
 import yaml
 from typing import List, Optional
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-
 from src import registry
 from src.platform_registry import get_platform_spec, create_component, ensure_platform_registered, get_api_key
 from src.models import ChatMessage, ModelInfo, ModelType
 
-
 async def run(platform, number=20, concurrency=5, timeout=30, max_time=0, sort_by="popular",
               model_type="all", scrape_only=False, resume=False, filter_text=True, quiet=False,
-              usecase=None, favorites=False):
+              usecase=None, favorites=False,
+              use_logger=True, reasoning_timeout=180, force_reasoning=False,
+              force_normal=False, manual_reasoning_models=None):
     ensure_platform_registered(platform)
     api_key = get_api_key(platform)
     spec = get_platform_spec(platform)
@@ -76,8 +74,10 @@ async def run(platform, number=20, concurrency=5, timeout=30, max_time=0, sort_b
         max_time=max_time, sort_by=sort_by,
         resume=resume, filter_text=filter_text, quiet=quiet,
         favorites=favorites,
+        use_logger=use_logger, reasoning_timeout=reasoning_timeout,
+        force_reasoning=force_reasoning, force_normal=force_normal,
+        manual_reasoning_models=manual_reasoning_models,
     )
-
 
 async def _gather_models(
     platform: str, spec, api_key: str,
@@ -149,11 +149,13 @@ async def _gather_models(
 
     return models
 
-
 async def _run_testing(
     platform: str, spec, models: List[ModelInfo], api_key: str, display_name: str,
     number: int, concurrency: int, timeout: int, max_time: int,
     sort_by: str, resume: bool, filter_text: bool, quiet: bool, favorites: bool,
+    use_logger: bool = True, reasoning_timeout: int = 180,
+    force_reasoning: bool = False, force_normal: bool = False,
+    manual_reasoning_models: list = None,
 ):
     """阶段 2: 执行测试并生成报告"""
     if not quiet:
@@ -163,26 +165,23 @@ async def _run_testing(
     # Legacy 路径（NVIDIA 爬虫+测试器一体化）
     if spec and spec.legacy_mode and not favorites:
         from crawler.tester import test_top_models
+        effective_reasoning_timeout = reasoning_timeout if reasoning_timeout != 180 else max(timeout * 3, 180)
+        test_kwargs = dict(
+            limit=number, concurrency=concurrency,
+            use_logger=use_logger or resume, resume=resume, sort_by=sort_by,
+            filter_text_models=filter_text,
+            reasoning_timeout=effective_reasoning_timeout,
+            force_reasoning=force_reasoning,
+            force_normal=force_normal,
+            manual_reasoning_models=manual_reasoning_models,
+        )
         try:
             if max_time > 0:
                 if not quiet:
                     print(f"⏱️ 总时间限制: {max_time}s")
-                await asyncio.wait_for(
-                    test_top_models(
-                        limit=number, concurrency=concurrency,
-                        use_logger=resume, resume=resume, sort_by=sort_by,
-                        filter_text_models=filter_text,
-                        reasoning_timeout=max(timeout * 3, 180),
-                    ),
-                    timeout=max_time,
-                )
+                await asyncio.wait_for(test_top_models(**test_kwargs), timeout=max_time)
             else:
-                await test_top_models(
-                    limit=number, concurrency=concurrency,
-                    use_logger=resume, resume=resume, sort_by=sort_by,
-                    filter_text_models=filter_text,
-                    reasoning_timeout=max(timeout * 3, 180),
-                )
+                await test_top_models(**test_kwargs)
         except asyncio.TimeoutError:
             if not quiet:
                 print(f"\n⏰ 总时间已达 {max_time}s 上限，提前结束测试")
@@ -207,7 +206,6 @@ async def _run_testing(
                 print(f"   JSON:     {files['json']}")
         except ImportError:
             pass
-
 
 def _print_summary(results, platform_name):
     success = sum(1 for r in results if r.status == "success")
