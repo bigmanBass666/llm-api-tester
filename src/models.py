@@ -4,7 +4,7 @@
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 from enum import Enum
 
 
@@ -42,8 +42,38 @@ class ChatMessage:
 
 
 @dataclass
+class ScrapedMetadata:
+    """爬虫采集的元数据 — 从 ModelInfo/TestResult 分离出来的独立关注点
+
+    Phase 1: 新增数据结构
+    Phase 4b: 将成为 ModelInfo 和 TestResult 中爬虫元数据的唯一载体
+    """
+
+    call_volume: str = ""
+    published_at: Optional[str] = None
+    deprecation_info: Optional[str] = None
+    endpoint_type: str = "unknown"
+    inference_provider: Optional[str] = None
+    created_at: Optional[int] = None
+    api_owned_by: Optional[str] = None
+    is_hosted: Optional[bool] = None
+
+    def to_dict(self) -> dict:
+        return {
+            "call_volume": self.call_volume,
+            "published_at": self.published_at,
+            "deprecation_info": self.deprecation_info,
+            "endpoint_type": self.endpoint_type,
+            "inference_provider": self.inference_provider,
+            "created_at": self.created_at,
+            "api_owned_by": self.api_owned_by,
+            "is_hosted": self.is_hosted,
+        }
+
+
+@dataclass
 class ModelInfo:
-    """全域统一的模型信息 - 合并了所有版本的字段"""
+    """全域统一的模型信息 — 合并了所有版本的字段"""
 
     id: str
     name: str
@@ -71,22 +101,38 @@ class ModelInfo:
     deprecation_info: Optional[str] = None
     endpoint_type: str = "unknown"
     inference_provider: Optional[str] = None
-    created_at: Optional[int] = None       # /v1/models API Unix 时间戳
-    api_owned_by: Optional[str] = None     # /v1/models API owned_by
-    is_hosted: Optional[bool] = None       # True=chat端点可用, False=不可用, None=未探测
+    created_at: Optional[int] = None
+    api_owned_by: Optional[str] = None
+    is_hosted: Optional[bool] = None
 
-    # 注意: 以下字段与 TestResult 共享，修改时需同步更新两处
-    # 共享字段: model_type, rank, is_downloadable, is_free_endpoint, tags,
-    #           call_volume, published_at, deprecation_info, endpoint_type,
-    #           inference_provider, created_at, api_owned_by, is_hosted
+    @property
+    def scraped(self) -> Optional['ScrapedMetadata']:
+        """桥接属性：从顶层字段构造 ScrapedMetadata（Phase 4b 后改为正式字段）"""
+        has_any = any([
+            self.call_volume, self.published_at, self.deprecation_info,
+            self.endpoint_type != "unknown", self.inference_provider,
+            self.created_at, self.api_owned_by, self.is_hosted is not None,
+        ])
+        if not has_any:
+            return None
+        return ScrapedMetadata(
+            call_volume=self.call_volume,
+            published_at=self.published_at,
+            deprecation_info=self.deprecation_info,
+            endpoint_type=self.endpoint_type,
+            inference_provider=self.inference_provider,
+            created_at=self.created_at,
+            api_owned_by=self.api_owned_by,
+            is_hosted=self.is_hosted,
+        )
 
     @property
     def status_icon(self) -> str:
         icons = {
-            "pending": "\u23f3", "testing": "\U0001f504",
-            "success": "\u2705", "failed": "\u274c", "timeout": "\u23f0",
+            "pending": "⏳", "testing": "\U0001f504",
+            "success": "✅", "failed": "❌", "timeout": "⏰",
         }
-        return icons.get(self.test_status, "\u2753")
+        return icons.get(self.test_status, "❓")
 
     @property
     def is_callable(self) -> bool:
@@ -144,6 +190,30 @@ class TestResult:
     created_at: Optional[int] = None
     api_owned_by: Optional[str] = None
     is_hosted: Optional[bool] = None
+    scraped: Optional[ScrapedMetadata] = None
+
+    @classmethod
+    def from_model_info(cls, model: 'ModelInfo', **test_fields) -> 'TestResult':
+        """从 ModelInfo + 测试字段构造 TestResult（替代 _model_to_result_kwargs）"""
+        scraped = model.scraped
+        return cls(
+            model_id=model.id,
+            model_type=model.model_type.value,
+            rank=model.rank,
+            is_downloadable=model.is_downloadable,
+            is_free_endpoint=model.is_free_endpoint,
+            tags=model.tags,
+            call_volume=model.call_volume,
+            published_at=model.published_at,
+            deprecation_info=model.deprecation_info,
+            endpoint_type=model.endpoint_type,
+            inference_provider=model.inference_provider,
+            created_at=model.created_at,
+            api_owned_by=model.api_owned_by,
+            is_hosted=model.is_hosted,
+            scraped=scraped,
+            **test_fields,
+        )
 
     def to_dict(self) -> dict:
         return {

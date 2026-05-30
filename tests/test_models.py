@@ -8,6 +8,7 @@ from src.models import (
     TestStatus,
     ReasoningEffort,
     ModelType,
+    ScrapedMetadata,
 )
 
 def test_model_info_defaults():
@@ -309,3 +310,105 @@ def test_test_result_to_dict_includes_model_type():
     d = r.to_dict()
     assert "model_type" in d
     assert d["model_type"] == "image_generation"
+
+
+# ──────────────────────────────────────────────
+# Phase 1: ScrapedMetadata + from_model_info()
+# ──────────────────────────────────────────────
+
+class TestScrapedMetadata:
+    def test_defaults(self):
+        sm = ScrapedMetadata()
+        assert sm.call_volume == ""
+        assert sm.published_at is None
+        assert sm.deprecation_info is None
+        assert sm.endpoint_type == "unknown"
+        assert sm.is_hosted is None
+
+    def test_construction(self):
+        sm = ScrapedMetadata(call_volume="1M API calls", endpoint_type="free", is_hosted=True)
+        assert sm.call_volume == "1M API calls"
+        assert sm.endpoint_type == "free"
+        assert sm.is_hosted is True
+
+    def test_to_dict(self):
+        sm = ScrapedMetadata(call_volume="100", created_at=1234567890)
+        d = sm.to_dict()
+        assert d["call_volume"] == "100"
+        assert d["created_at"] == 1234567890
+        assert d["is_hosted"] is None
+
+
+class TestModelInfoScrapedProperty:
+    def test_no_scraper_data_returns_none(self):
+        m = ModelInfo(id="m1", name="test")
+        assert m.scraped is None
+
+    def test_with_scraper_data(self):
+        m = ModelInfo(id="m1", name="test", call_volume="1M", is_hosted=True)
+        sm = m.scraped
+        assert sm is not None
+        assert sm.call_volume == "1M"
+        assert sm.is_hosted is True
+
+    def test_with_endpoint_type(self):
+        m = ModelInfo(id="m1", name="test", endpoint_type="free")
+        sm = m.scraped
+        assert sm is not None
+        assert sm.endpoint_type == "free"
+
+    def test_with_created_at(self):
+        m = ModelInfo(id="m1", name="test", created_at=1234567890)
+        sm = m.scraped
+        assert sm is not None
+        assert sm.created_at == 1234567890
+
+
+class TestResultFromModelInfo:
+    def test_basic_copy(self):
+        m = ModelInfo(id="m1", name="test", vendor="meta", rank=5,
+                       model_type=ModelType.MULTIMODAL,
+                       is_downloadable=True, is_free_endpoint=False,
+                       tags=["free", "flash"])
+        r = TestResult.from_model_info(m, status="success", response_time=1.5)
+        assert r.model_id == "m1"
+        assert r.model_type == "multimodal"
+        assert r.rank == 5
+        assert r.is_downloadable is True
+        assert r.is_free_endpoint is False
+        assert r.tags == ["free", "flash"]
+        assert r.status == "success"
+        assert r.response_time == 1.5
+
+    def test_scraper_metadata_copied(self):
+        m = ModelInfo(id="m1", name="test",
+                       call_volume="500K", endpoint_type="partner",
+                       created_at=1234567890, api_owned_by="meta",
+                       is_hosted=True)
+        r = TestResult.from_model_info(m, status="success")
+        assert r.call_volume == "500K"
+        assert r.endpoint_type == "partner"
+        assert r.created_at == 1234567890
+        assert r.api_owned_by == "meta"
+        assert r.is_hosted is True
+
+    def test_scraped_metadata_field_set(self):
+        m = ModelInfo(id="m1", name="test", call_volume="100", is_hosted=True)
+        r = TestResult.from_model_info(m, status="success")
+        assert r.scraped is not None
+        assert r.scraped.call_volume == "100"
+        assert r.scraped.is_hosted is True
+
+    def test_scraped_none_when_no_metadata(self):
+        m = ModelInfo(id="m1", name="test")
+        r = TestResult.from_model_info(m, status="success")
+        assert r.scraped is None
+
+    def test_test_fields_override_defaults(self):
+        m = ModelInfo(id="m1", name="test")
+        r = TestResult.from_model_info(m,
+            status="timeout", response_time=30.0,
+            error_message="timed out", token_usage=0)
+        assert r.status == "timeout"
+        assert r.response_time == 30.0
+        assert r.error_message == "timed out"

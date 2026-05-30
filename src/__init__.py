@@ -5,7 +5,7 @@ API Testing Framework - 多平台 API 测试框架
 """
 
 # 核心数据模型和配置
-from .models import ModelInfo, ChatMessage
+from .models import ModelInfo, ChatMessage, ScrapedMetadata, TestResult
 from .config_loader import ConfigLoader, load_config, get_api_key
 from .ssl_config import setup_ssl_certificates
 from .model_classifier import ModelClassifier
