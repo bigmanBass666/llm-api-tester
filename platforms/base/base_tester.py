@@ -53,6 +53,13 @@ class BaseTester:
             "is_hosted": model.is_hosted,
         }
 
+    def _classify_error(self, error: Exception) -> str:
+        """根据异常类型判定测试状态（timeout / failed）"""
+        error_msg = str(error)
+        if "Timeout" in error_msg or "timed out" in error_msg.lower():
+            return "timeout"
+        return "failed"
+
     async def test_single(self, model: ModelInfo, timeout: int = 60) -> TestResult:
         if model.model_type in self.UNSUPPORTED_MODEL_TYPES:
             return TestResult(
@@ -104,18 +111,11 @@ class BaseTester:
 
         except Exception as e:
             elapsed = time.time() - start_time
-            error_msg = str(e)
-
-            if "Timeout" in error_msg or "timed out" in error_msg.lower():
-                status = "timeout"
-            else:
-                status = "failed"
-
             return TestResult(
                 **self._model_to_result_kwargs(model),
-                status=status,
+                status=self._classify_error(e),
                 response_time=round(elapsed, 2),
-                error_message=error_msg[:200],
+                error_message=str(e)[:200],
             )
 
     async def test_image_model(self, model: ModelInfo, timeout: int = 60) -> TestResult:
@@ -164,18 +164,11 @@ class BaseTester:
 
         except Exception as e:
             elapsed = time.time() - start_time
-            error_msg = str(e)
-
-            if "Timeout" in error_msg or "timed out" in error_msg.lower():
-                status = "timeout"
-            else:
-                status = "failed"
-
             return TestResult(
                 **self._model_to_result_kwargs(model),
-                status=status,
+                status=self._classify_error(e),
                 response_time=round(elapsed, 2),
-                error_message=error_msg[:200],
+                error_message=str(e)[:200],
             )
 
     async def batch_test(self, models: List[ModelInfo],

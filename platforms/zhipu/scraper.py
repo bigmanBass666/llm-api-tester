@@ -21,7 +21,8 @@ class ZhipuScraper(BaseScraper):
         """获取模型列表（智谱使用预定义列表，排序参数被忽略）"""
         from src.platform_config import PlatformConfigLoader
 
-        known_models = PlatformConfigLoader.get_known_models(self.platform_name)
+        scraper_config = PlatformConfigLoader.get_scraper_config(self.platform_name)
+        known_models = scraper_config.known_models if scraper_config else []
         if not known_models:
             print(f"⚠️ 智谱: 未找到预定义模型列表，请检查 configs/platforms.yaml")
             return []

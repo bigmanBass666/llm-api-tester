@@ -76,7 +76,7 @@ class ConfigLoader:
     @classmethod
     def get_api_key(cls, platform: str) -> str:
         """
-        获取指定平台的 API key
+        获取指定平台的 API key（委托给 platform_registry 统一实现）
 
         Args:
             platform: 平台名称，如 'nvidia', 'zhipu', 'aliyun'
@@ -87,39 +87,8 @@ class ConfigLoader:
         Raises:
             ValueError: 如果未找到 API key
         """
-        from .platform_config import PlatformConfigLoader
-
-        platform = platform.lower()
-
-        config = PlatformConfigLoader.get_config(platform)
-        if not config:
-            available = ', '.join(PlatformConfigLoader.get_available_platforms())
-            raise ValueError(
-                f"未知平台: {platform}\n"
-                f"可用平台: {available}"
-            )
-
-        env_var_name = config.api_key_env
-        if not env_var_name:
-            raise ValueError(
-                f"平台 {platform} 未配置 API Key 环境变量"
-            )
-
-        key = os.getenv(env_var_name)
-
-        if not key:
-            raise ValueError(
-                f"❌ 缺少 {platform} 的 API Key\n"
-                f"请设置环境变量: {env_var_name}\n"
-                f"或在 .env.local 文件中配置\n"
-                f"\n"
-                f"配置方法：\n"
-                f"  1. 复制 .env.example 为 .env.local\n"
-                f"  2. 编辑 .env.local 填入真实 {env_var_name}\n"
-                f"  3. 或直接在系统环境变量中设置"
-            )
-
-        return key
+        from .platform_registry import get_api_key as _registry_get_api_key
+        return _registry_get_api_key(platform)
 
     @classmethod
     def get_platform_config(cls, platform: str) -> Dict[str, Any]:
@@ -225,8 +194,9 @@ def get_available_platforms() -> List[str]:
 # ============================================
 
 def get_api_key(platform: str) -> str:
-    """快速获取 API key"""
-    return ConfigLoader.get_api_key(platform)
+    """快速获取 API key（委托给 platform_registry 统一实现）"""
+    from .platform_registry import get_api_key as _registry_get_api_key
+    return _registry_get_api_key(platform)
 
 
 def require_api_key(platform: str) -> str:

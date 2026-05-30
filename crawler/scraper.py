@@ -114,8 +114,9 @@ async def scrape_top_models(limit: int = 50, sort_by: str = "platforms", filter_
 # 向后兼容：从配置加载器获取配置常量
 from src.platform_config import PlatformConfigLoader
 
-TEXT_MODEL_CATEGORIES = PlatformConfigLoader.get_text_model_categories("nvidia")
-NON_TEXT_KEYWORDS = PlatformConfigLoader.get_non_text_keywords("nvidia")
+_nvidia_scraper_config = PlatformConfigLoader.get_scraper_config("nvidia")
+TEXT_MODEL_CATEGORIES = _nvidia_scraper_config.text_model_categories if _nvidia_scraper_config else set()
+NON_TEXT_KEYWORDS = _nvidia_scraper_config.non_text_keywords if _nvidia_scraper_config else []
 
 
 if __name__ == "__main__":

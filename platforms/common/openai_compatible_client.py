@@ -97,18 +97,20 @@ class OpenAICompatibleClient(BasePlatformClient):
             self._client = None
 
 
-class KimiClient(BasePlatformClient):
-    """Kimi Code 客户端 — 使用 Anthropic Messages API 格式
+class AnthropicCompatibleClient(BasePlatformClient):
+    """Anthropic Messages API 兼容客户端
 
-    端点: https://api.kimi.com/coding/
+    适用于使用 Anthropic Messages API 格式的平台（如 Kimi Code）。
+    端点示例: https://api.kimi.com/coding/
     认证: x-api-key header (非 Bearer)
     协议: Anthropic Messages API 兼容
     """
 
-    platform_name = "kimi"
+    platform_name = "anthropic_compatible"
 
-    def __init__(self, api_key: str, base_url: str = "https://api.kimi.com/coding/", **kwargs):
-        super().__init__(api_key=api_key, base_url=base_url, platform_name="kimi", **kwargs)
+    def __init__(self, api_key: str, base_url: str, platform_name: str = "anthropic_compatible", **kwargs):
+        self.platform_name = platform_name
+        super().__init__(api_key=api_key, base_url=base_url, **kwargs)
         self._http_client = None
 
     @property
@@ -127,9 +129,10 @@ class KimiClient(BasePlatformClient):
 
     def chat(self, model: str, messages: List[ChatMessage], **kwargs) -> str:
         anthropic_messages = []
+        system_content = None
         for m in messages:
             if m.role == "system":
-                # Anthropic 格式中 system 是顶层字段，这里简单跳过
+                system_content = m.content
                 continue
             anthropic_messages.append({"role": m.role, "content": m.content})
 
@@ -138,6 +141,8 @@ class KimiClient(BasePlatformClient):
             "messages": anthropic_messages,
             "max_tokens": kwargs.get("max_tokens", 256),
         }
+        if system_content:
+            body["system"] = system_content
         if kwargs.get("thinking") is not None:
             body["thinking"] = kwargs["thinking"]
 
@@ -154,7 +159,7 @@ class KimiClient(BasePlatformClient):
         return ""
 
     async def chat_stream(self, model: str, messages: List[ChatMessage], **kwargs) -> AsyncIterator[str]:
-        raise NotImplementedError("KimiClient 暂不支持流式聊天")
+        raise NotImplementedError("AnthropicCompatibleClient 暂不支持流式聊天")
 
     def list_models(self) -> List[ModelInfo]:
         try:
@@ -194,6 +199,10 @@ class KimiClient(BasePlatformClient):
         if self._http_client:
             self._http_client.close()
             self._http_client = None
+
+
+# 向后兼容别名
+KimiClient = AnthropicCompatibleClient
 
 
 class MiniMaxClient(OpenAICompatibleClient):

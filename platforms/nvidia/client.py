@@ -12,25 +12,24 @@ from openai import OpenAI
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from src.models import ModelInfo, ChatMessage
-from platforms.base.base_client import BasePlatformClient
+from platforms.common.openai_compatible_client import OpenAICompatibleClient
 from src.platform_registry import register_platform
 from src.platform_config import PlatformConfigLoader
 
 
-class NvidiaClient(BasePlatformClient):
+class NvidiaClient(OpenAICompatibleClient):
     """NVIDIA NIM API 客户端"""
 
     platform_name = "nvidia"
     platform_display_name = "NVIDIA NIM"
 
     def __init__(self, api_key: str = None, base_url: Optional[str] = None, **kwargs):
-        self._client: Optional[OpenAI] = None
-
         self._load_config()
 
         super().__init__(
             api_key=api_key,
             base_url=base_url or self._platform_base_url,
+            platform_name="nvidia",
             **kwargs
         )
 
@@ -54,28 +53,7 @@ class NvidiaClient(BasePlatformClient):
             )
         return self._client
 
-    def chat(
-        self,
-        model: str,
-        messages: List[ChatMessage],
-        **kwargs
-    ) -> str:
-        openai_messages = [
-            {"role": m.role, "content": m.content}
-            for m in messages
-        ]
-
-        completion = self.client.chat.completions.create(
-            model=model,
-            messages=openai_messages,
-            **kwargs
-        )
-
-        response = completion.choices[0].message.content
-        if response is None and hasattr(completion.choices[0].message, 'reasoning_content'):
-            response = completion.choices[0].message.reasoning_content
-
-        return response or ""
+    # chat() 继承自 OpenAICompatibleClient，无需重写
 
     def chat_stream(
         self,

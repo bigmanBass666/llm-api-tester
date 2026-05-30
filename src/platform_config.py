@@ -296,6 +296,4 @@ __all__ = [
     'ClientConfig',
     'PlatformConfig',
     'PlatformConfigLoader',
-    'get_image_model_categories',
-    'get_image_model_keywords',
 ]

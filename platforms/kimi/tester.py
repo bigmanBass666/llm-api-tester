@@ -45,16 +45,9 @@ class KimiTester(BaseTester):
 
         except Exception as e:
             elapsed = time.time() - start_time
-            error_msg = str(e)
-
-            if "Timeout" in error_msg or "timed out" in error_msg.lower():
-                status = "timeout"
-            else:
-                status = "failed"
-
             return TestResult(
                 **self._model_to_result_kwargs(model),
-                status=status,
+                status=self._classify_error(e),
                 response_time=round(elapsed, 2),
-                error_message=error_msg[:200],
+                error_message=str(e)[:200],
             )
