@@ -13,14 +13,13 @@ from src.models import TestResult, TestReport
 class MarkdownFormatter:
     """Markdown 报告格式化器"""
 
-    TAG_ICONS = {
-        'downloadable': '📥',
-        'free': '🔓',
-        'flash': '⚡',
-        'thinking': '🤔',
-        'image_generation': '🎨',
-        'partner': '🤝',
-    }
+    def _get_scraped_field(self, result: 'TestResult', field: str):
+        """从 TestResult 获取爬虫元数据字段（优先 scraped，回退到顶层字段）"""
+        if result.scraped is not None:
+            val = getattr(result.scraped, field, None)
+            if val is not None and val != "":
+                return val
+        return getattr(result, field, None)
 
     def _format_endpoint_type(self, endpoint_type: str) -> str:
         if endpoint_type == 'free':
@@ -29,12 +28,12 @@ class MarkdownFormatter:
             return '🤝'
         return endpoint_type
 
-    def _format_deprecation(self, deprecation_info: Optional[str]) -> str:
+    def _format_deprecation(self, deprecation_info: str) -> str:
         if deprecation_info:
             return f'⚠️ {deprecation_info}'
         return ''
 
-    def _format_model_id_with_deprecation(self, model_id: str, deprecation_info: Optional[str]) -> str:
+    def _format_model_id_with_deprecation(self, model_id: str, deprecation_info: str) -> str:
         if deprecation_info:
             return f'{model_id} ⚠️'
         return model_id
@@ -76,10 +75,11 @@ class MarkdownFormatter:
         )
 
         for i, r in enumerate(successful[:10], 1):
-            cv = self._format_call_volume(r.call_volume)
-            pub = self._format_published_at(r.published_at)
-            ep = self._format_endpoint_type(r.endpoint_type)
-            model_id = self._format_model_id_with_deprecation(r.model_id, r.deprecation_info)
+            cv = self._format_call_volume(self._get_scraped_field(r, 'call_volume') or "")
+            pub = self._format_published_at(self._get_scraped_field(r, 'published_at'))
+            ep = self._format_endpoint_type(self._get_scraped_field(r, 'endpoint_type') or "unknown")
+            depr = self._get_scraped_field(r, 'deprecation_info') or ""
+            model_id = self._format_model_id_with_deprecation(r.model_id, depr)
             md += f"| {i} | {model_id} | {ep} | {cv} | {pub} | {r.response_time:.2f}s | ✅ |\n"
 
         md += """
@@ -96,11 +96,10 @@ class MarkdownFormatter:
 
         for r in text_results:
             tags_str = self._format_tags(r.tags)
-            cv = self._format_call_volume(r.call_volume)
-            pub = self._format_published_at(r.published_at)
-            ep = self._format_endpoint_type(r.endpoint_type)
-            model_id = self._format_model_id_with_deprecation(r.model_id, r.deprecation_info)
-            depr = self._format_deprecation(r.deprecation_info)
+            cv = self._format_call_volume(self._get_scraped_field(r, 'call_volume') or "")
+            pub = self._format_published_at(self._get_scraped_field(r, 'published_at'))
+            ep = self._format_endpoint_type(self._get_scraped_field(r, 'endpoint_type') or "unknown")
+            depr = self._format_deprecation(self._get_scraped_field(r, 'deprecation_info') or "")
             if r.status == 'success':
                 status_icon = '✅'
                 detail = '成功'
@@ -129,11 +128,10 @@ class MarkdownFormatter:
 """
             for r in image_results:
                 tags_str = self._format_tags(r.tags)
-                cv = self._format_call_volume(r.call_volume)
-                pub = self._format_published_at(r.published_at)
-                ep = self._format_endpoint_type(r.endpoint_type)
-                model_id = self._format_model_id_with_deprecation(r.model_id, r.deprecation_info)
-                depr = self._format_deprecation(r.deprecation_info)
+                cv = self._format_call_volume(self._get_scraped_field(r, 'call_volume') or "")
+                pub = self._format_published_at(self._get_scraped_field(r, 'published_at'))
+                ep = self._format_endpoint_type(self._get_scraped_field(r, 'endpoint_type') or "unknown")
+                depr = self._format_deprecation(self._get_scraped_field(r, 'deprecation_info') or "")
                 if r.status == 'success':
                     status_icon = '✅'
                     detail = '成功'
