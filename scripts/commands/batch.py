@@ -2,6 +2,7 @@ import os
 import time
 import asyncio
 import yaml
+import warnings
 from typing import List, Optional
 
 from src import registry
@@ -163,8 +164,13 @@ async def _run_testing(
         print(f"\n开始测试 ({concurrency} 并发)...")
         print("-" * 60)
 
-    # Legacy 路径（NVIDIA 爬虫+测试器一体化）
+    # Legacy 路径（NVIDIA 爬虫+测试器一体化）— DEPRECATED
     if spec and spec.legacy_mode and not favorites:
+        warnings.warn(
+            "legacy_mode is deprecated, migrate to platform tester",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         from crawler.tester import test_top_models
         effective_reasoning_timeout = reasoning_timeout if reasoning_timeout != 180 else max(timeout * 3, 180)
         test_kwargs = dict(

@@ -143,7 +143,7 @@ class TestResult:
         )
 
     def to_dict(self) -> dict:
-        s = self.scraped
+        s = self.scraped or ScrapedMetadata()
         return {
             "model_id": self.model_id,
             "model_type": self.model_type,
@@ -156,14 +156,14 @@ class TestResult:
             "is_free_endpoint": self.is_free_endpoint,
             "tags": self.tags or [],
             "token_usage": self.token_usage,
-            "call_volume": s.call_volume if s else "",
-            "published_at": s.published_at if s else None,
-            "deprecation_info": s.deprecation_info if s else None,
-            "endpoint_type": s.endpoint_type if s else "unknown",
-            "inference_provider": s.inference_provider if s else None,
-            "created_at": s.created_at if s else None,
-            "api_owned_by": s.api_owned_by if s else None,
-            "is_hosted": s.is_hosted if s else None,
+            "call_volume": s.call_volume,
+            "published_at": s.published_at,
+            "deprecation_info": s.deprecation_info,
+            "endpoint_type": s.endpoint_type,
+            "inference_provider": s.inference_provider,
+            "created_at": s.created_at,
+            "api_owned_by": s.api_owned_by,
+            "is_hosted": s.is_hosted,
         }
 
 
