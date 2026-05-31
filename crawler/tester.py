@@ -9,6 +9,7 @@ import httpx
 from typing import List, Optional
 
 from .models import ModelInfo, is_reasoning_model, get_reasoning_effort
+from src.models import TestResult
 from .logger import ModelTestLogger
 from .errors import APIError, AuthenticationError, RateLimitError, ModelNotFoundError, TimeoutError as APITimeoutError, ServerError
 
@@ -43,64 +44,64 @@ class ModelTester:
             http_client=self._http_client,
         )
 
-    def _handle_test_error(self, model: ModelInfo, error: Exception, start_time: float, is_reasoning: bool = False) -> ModelInfo:
+    def _handle_test_error(self, model: ModelInfo, error: Exception, start_time: float, is_reasoning: bool = False) -> TestResult:
         elapsed = time.time() - start_time
 
         if isinstance(error, (asyncio.TimeoutError, APITimeoutError)):
-            model.test_status = "timeout"
-            model.error_message = str(error)[:500] if isinstance(error, APITimeoutError) else "请求超时: 服务器响应时间过长"
+            status = "timeout"
+            error_message = str(error)[:500] if isinstance(error, APITimeoutError) else "请求超时: 服务器响应时间过长"
         elif isinstance(error, AuthenticationError):
-            model.test_status = "failed"
-            model.error_message = "认证失败: 请检查API Key是否正确"
+            status = "failed"
+            error_message = "认证失败: 请检查API Key是否正确"
         elif isinstance(error, RateLimitError):
-            model.test_status = "failed"
-            model.error_message = "请求频率超限: 请稍后重试"
+            status = "failed"
+            error_message = "请求频率超限: 请稍后重试"
         elif isinstance(error, ModelNotFoundError):
-            model.test_status = "failed"
-            model.error_message = f"模型不存在: {error.message}"
+            status = "failed"
+            error_message = f"模型不存在: {error.message}"
         elif isinstance(error, ServerError):
-            model.test_status = "failed"
-            model.error_message = f"服务器错误({error.status_code}): {error.message}"
+            status = "failed"
+            error_message = f"服务器错误({error.status_code}): {error.message}"
         elif isinstance(error, APIError):
-            model.test_status = "failed"
-            model.error_message = f"API错误: {error.message}"
+            status = "failed"
+            error_message = f"API错误: {error.message}"
         else:
-            model.test_status = "failed"
-            model.error_message = str(error)[:500]
+            status = "failed"
+            error_message = str(error)[:500]
 
-        model.response_time = elapsed
-        model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
-        model.is_reasoning = is_reasoning
+        result = TestResult.from_model_info(
+            model,
+            status=status,
+            response_time=round(elapsed, 2),
+            error_message=error_message,
+        )
 
         if self.logger:
-            log_method = self.logger.log_test_timeout if model.test_status == "timeout" else self.logger.log_test_error
-            if model.test_status == "timeout":
+            log_method = self.logger.log_test_timeout if status == "timeout" else self.logger.log_test_error
+            if status == "timeout":
                 log_method(model.id, int(elapsed))
             else:
-                log_method(model.id, type(error).__name__, model.error_message[:200])
+                log_method(model.id, type(error).__name__, error_message[:200])
             self.logger.mark_tested(model.id)
         else:
-            icon = "⏰" if model.test_status == "timeout" else "❌"
-            detail = "timeout" if model.test_status == "timeout" else f"{type(error).__name__}: {str(error)[:100]}"
+            icon = "⏰" if status == "timeout" else "❌"
+            detail = "timeout" if status == "timeout" else f"{type(error).__name__}: {str(error)[:100]}"
             print(f"{icon} #{model.rank} {model.id} - {elapsed:.2f}s - {detail}")
 
-        return model
+        return result
 
     async def test_single_model(self, model: ModelInfo, timeout: int = 60,
                          force_reasoning: bool = False,
-                         force_normal: bool = False) -> ModelInfo:
+                         force_normal: bool = False) -> TestResult:
         if self.logger and self.logger.is_tested(model.id):
             self.logger.log('INFO', 'skip', model_id=model.id, reason='already_tested')
             print(f"⏭️  跳过 #{model.rank} {model.id}（已完成）")
-            return model
+            return TestResult.from_model_info(model, status="skipped")
 
         if self.logger:
             self.logger.log_test_start(model.id, model.rank)
 
         print(f"🧪 测试模型 #{model.rank}: {model.id}")
-
-        model.test_status = "testing"
-        start_time = time.time()
 
         use_reasoning_mode = force_reasoning or (not force_normal and is_reasoning_model(model.id))
 
@@ -110,7 +111,7 @@ class ModelTester:
         else:
             return await self._test_normal_model(model, timeout)
 
-    async def _test_reasoning_model(self, model: ModelInfo, timeout: int = 120) -> ModelInfo:
+    async def _test_reasoning_model(self, model: ModelInfo, timeout: int = 120) -> TestResult:
         reasoning_effort = get_reasoning_effort(model.id)
         extra_body = {
             "chat_template_kwargs": {
@@ -153,26 +154,28 @@ class ModelTester:
 
             elapsed = time.time() - start_time
 
-            model.test_status = "success"
-            model.response_time = elapsed
-            model.token_usage = 0
-            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
-            model.is_reasoning = True
-            model.reasoning_effort = reasoning_effort
+            result = TestResult.from_model_info(
+                model,
+                status="success",
+                response_time=round(elapsed, 2),
+                response_preview=full_content[:100],
+                reasoning_content=reasoning_content,
+                token_usage=0,
+            )
 
             if self.logger:
-                self.logger.log_test_success(model.id, elapsed, model.token_usage)
+                self.logger.log_test_success(model.id, elapsed, 0)
                 self.logger.mark_tested(model.id)
             else:
                 content_preview = full_content[:50] if full_content else "[无]"
                 print(f"✅ #{model.rank} {model.id} - {elapsed:.2f}s (内容: {content_preview})")
 
-            return model
+            return result
 
         except Exception as e:
             return self._handle_test_error(model, e, start_time, is_reasoning=True)
 
-    async def _test_normal_model(self, model: ModelInfo, timeout: int = 60) -> ModelInfo:
+    async def _test_normal_model(self, model: ModelInfo, timeout: int = 60) -> TestResult:
         start_time = time.time()
 
         try:
@@ -186,26 +189,30 @@ class ModelTester:
             )
 
             elapsed = time.time() - start_time
+            token_usage = response.usage.total_tokens if response.usage else 0
 
-            model.test_status = "success"
-            model.response_time = elapsed
-            model.token_usage = response.usage.total_tokens if response.usage else 0
-            model.test_date = time.strftime("%Y-%m-%d %H:%M:%S")
+            result = TestResult.from_model_info(
+                model,
+                status="success",
+                response_time=round(elapsed, 2),
+                response_preview=response.choices[0].message.content[:100] if response.choices[0].message.content else "",
+                token_usage=token_usage,
+            )
 
             if self.logger:
-                self.logger.log_test_success(model.id, elapsed, model.token_usage)
+                self.logger.log_test_success(model.id, elapsed, token_usage)
                 self.logger.mark_tested(model.id)
             else:
                 print(f"✅ #{model.rank} {model.id} - {elapsed:.2f}s")
 
-            return model
+            return result
 
         except Exception as e:
             return self._handle_test_error(model, e, start_time)
 
     async def test_model_async(self, model: ModelInfo, timeout: int = 60,
                               force_reasoning: bool = False,
-                              force_normal: bool = False) -> ModelInfo:
+                              force_normal: bool = False) -> TestResult:
         return await self.test_single_model(model, timeout, force_reasoning, force_normal)
 
     async def test_batch_models(self, models: List[ModelInfo],
@@ -213,7 +220,7 @@ class ModelTester:
                               timeout: int = 60,
                               timeout_reasoning: int = 180,
                               force_reasoning: bool = False,
-                              force_normal: bool = False) -> List[ModelInfo]:
+                              force_normal: bool = False) -> List[TestResult]:
         from .models import is_reasoning_model
 
         if self.logger:
@@ -222,7 +229,7 @@ class ModelTester:
             print(f"🚀 开始批量测试 {len(models)} 个模型 (并发数: {concurrency})")
             print("=" * 60)
 
-        results = []
+        results: List[TestResult] = []
         semaphore = asyncio.Semaphore(concurrency)
 
         async def test_with_semaphore(model):
@@ -259,53 +266,53 @@ class ModelTester:
 
         if self.logger:
             total = len(results)
-            successful = sum(1 for m in results if m.test_status == "success")
-            failed = sum(1 for m in results if m.test_status == "failed")
-            timeout_count = sum(1 for m in results if m.test_status == "timeout")
+            successful = sum(1 for r in results if r.status == "success")
+            failed = sum(1 for r in results if r.status == "failed")
+            timeout_count = sum(1 for r in results if r.status == "timeout")
             self.logger.log_batch_complete(total, successful, failed, timeout_count)
         else:
             print(f"✅ 批次完成: {len(results)} 个模型已测试")
 
         return results
 
-    def generate_report(self, models: List[ModelInfo]) -> dict:
+    def generate_report(self, results: List[TestResult]) -> dict:
         summary = {
-            "total": len(models),
-            "success": sum(1 for m in models if m.test_status == "success"),
-            "failed": sum(1 for m in models if m.test_status == "failed"),
-            "timeout": sum(1 for m in models if m.test_status == "timeout"),
-            "testing": sum(1 for m in models if m.test_status == "testing"),
-            "pending": sum(1 for m in models if m.test_status == "pending"),
+            "total": len(results),
+            "success": sum(1 for r in results if r.status == "success"),
+            "failed": sum(1 for r in results if r.status == "failed"),
+            "timeout": sum(1 for r in results if r.status == "timeout"),
+            "testing": sum(1 for r in results if r.status == "testing"),
+            "pending": sum(1 for r in results if r.status == "pending"),
         }
 
-        successful_models = sorted(
-            [m for m in models if m.test_status == "success"],
+        successful_results = sorted(
+            [r for r in results if r.status == "success"],
             key=lambda x: x.response_time
         )
 
-        failed_models = [m for m in models if m.test_status in ("failed", "timeout")]
+        failed_results = [r for r in results if r.status in ("failed", "timeout")]
 
         return {
             "summary": summary,
             "successful_models": [
                 {
-                    "rank": m.rank,
-                    "id": m.id,
-                    "response_time": m.response_time,
-                    "token_usage": m.token_usage,
-                    "tags": getattr(m, 'tags', []) or []
+                    "rank": r.rank,
+                    "id": r.model_id,
+                    "response_time": r.response_time,
+                    "token_usage": r.token_usage,
+                    "tags": r.tags or []
                 }
-                for m in successful_models
+                for r in successful_results
             ],
             "failed_models": [
                 {
-                    "rank": m.rank,
-                    "id": m.id,
-                    "status": m.test_status,
-                    "error": m.error_message,
-                    "tags": getattr(m, 'tags', []) or []
+                    "rank": r.rank,
+                    "id": r.model_id,
+                    "status": r.status,
+                    "error": r.error_message,
+                    "tags": r.tags or []
                 }
-                for m in failed_models
+                for r in failed_results
             ],
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
         }

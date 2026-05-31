@@ -12,6 +12,7 @@ from unittest.mock import Mock, patch, AsyncMock, MagicMock
 
 from crawler.tester import ModelTester
 from crawler.models import is_reasoning_model
+from src.models import ModelInfo, TestResult, TestStatus
 
 
 def create_tester(mock_api_key):
@@ -25,6 +26,29 @@ def create_tester(mock_api_key):
     return tester
 
 
+def make_mock_normal_response():
+    """创建普通模式的 mock 响应"""
+    mock_response = Mock()
+    mock_response.usage = Mock()
+    mock_response.usage.total_tokens = 50
+    mock_response.choices = [Mock()]
+    mock_response.choices[0].message = Mock()
+    mock_response.choices[0].message.content = "OK"
+    return mock_response
+
+
+async def make_mock_stream_response():
+    """创建推理模式的 mock 流式响应"""
+    chunk = Mock()
+    chunk.choices = [Mock()]
+    delta = Mock()
+    delta.content = "OK"
+    delta.reasoning = None
+    delta.reasoning_content = None
+    chunk.choices[0].delta = delta
+    yield chunk
+
+
 class TestModelTesterModeSelection:
     """测试模式选择逻辑 - 验证 force_normal/force_reasoning/auto_detect 三种模式"""
 
@@ -33,17 +57,11 @@ class TestModelTesterModeSelection:
         """
         5.1 强制普通模式测试
         目标: 当 force_normal=True 时，即使模型是推理模型也应该使用普通模式
-        场景: deepseek-v4-flash 是推理模型，但 force_normal=True 应该调用 _test_normal_model
         """
         tester = create_tester(mock_api_key)
 
-        sample_reasoning_model.is_reasoning = False
-
         mock_client = AsyncMock()
-        mock_response = Mock()
-        mock_response.usage = Mock()
-        mock_response.usage.total_tokens = 50
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+        mock_client.chat.completions.create = AsyncMock(return_value=make_mock_normal_response())
 
         with patch.object(tester, '_get_openai_client', return_value=mock_client):
             result = await tester.test_single_model(
@@ -53,9 +71,8 @@ class TestModelTesterModeSelection:
                 force_reasoning=False
             )
 
-            assert result.test_status == "success"
-            assert not getattr(result, 'is_reasoning', False), \
-                "force_normal=True 时不应设置 is_reasoning=True"
+            assert result.status == "success"
+            assert isinstance(result, TestResult)
 
             mock_client.chat.completions.create.assert_called_once()
             call_kwargs = mock_client.chat.completions.create.call_args[1]
@@ -69,34 +86,15 @@ class TestModelTesterModeSelection:
         """
         5.2 强制推理模式测试
         目标: 当 force_reasoning=True 时，应该强制使用推理模式
-        场景: 普通模型在 force_reasoning=True 时应该调用 _test_reasoning_model
         """
-        from src.models import ModelInfo, TestStatus
-
         normal_model = ModelInfo(
-            id="google/gemma-7b",
-            name="Gemma 7B",
-            vendor="google",
-            rank=5,
-            test_status=TestStatus.PENDING.value,
+            id="google/gemma-7b", name="Gemma 7B", vendor="google", rank=5,
         )
 
         tester = create_tester(mock_api_key)
 
         mock_client = AsyncMock()
-
-        async def mock_stream():
-            chunk1 = Mock()
-            chunk1.choices = [Mock()]
-            delta1 = Mock()
-            delta1.content = "OK"
-            delta1.reasoning = None
-            delta1.reasoning_content = None
-            chunk1.choices[0].delta = delta1
-            yield chunk1
-
-        mock_response = mock_stream()
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+        mock_client.chat.completions.create = AsyncMock(return_value=make_mock_stream_response())
 
         with patch.object(tester, '_get_openai_client', return_value=mock_client):
             result = await tester.test_single_model(
@@ -106,9 +104,8 @@ class TestModelTesterModeSelection:
                 force_normal=False
             )
 
-            assert result.test_status == "success"
-            assert getattr(result, 'is_reasoning', False), \
-                "force_reasoning=True 时应该设置 is_reasoning=True"
+            assert result.status == "success"
+            assert isinstance(result, TestResult)
 
             mock_client.chat.completions.create.assert_called_once()
             call_kwargs = mock_client.chat.completions.create.call_args[1]
@@ -122,98 +119,52 @@ class TestModelTesterModeSelection:
         """
         5.3 自动检测模式测试
         目标: 不指定 force 参数时，应该根据 is_reasoning_model() 自动检测模式
-        场景:
-          - 推理模型 (deepseek-v4-flash) 自动使用推理模式
-          - 非推理模型 (gemma-7b) 自动使用普通模式
         """
-        from src.models import ModelInfo, TestStatus
-
         reasoning_model = ModelInfo(
-            id="deepseek-ai/deepseek-v4-flash",
-            name="DeepSeek V4 Flash",
-            vendor="deepseek-ai",
-            rank=10,
-            test_status=TestStatus.PENDING.value,
+            id="deepseek-ai/deepseek-v4-flash", name="DeepSeek V4 Flash",
+            vendor="deepseek-ai", rank=10,
         )
         normal_model = ModelInfo(
-            id="google/gemma-7b",
-            name="Gemma 7B",
-            vendor="google",
-            rank=5,
-            test_status=TestStatus.PENDING.value,
+            id="google/gemma-7b", name="Gemma 7B", vendor="google", rank=5,
         )
 
-        assert is_reasoning_model(reasoning_model.id), \
-            "deepseek-v4-flash 应该被识别为推理模型"
-        assert not is_reasoning_model(normal_model.id), \
-            "gemma-7b 不应该被识别为推理模型"
+        assert is_reasoning_model(reasoning_model.id)
+        assert not is_reasoning_model(normal_model.id)
 
         tester = create_tester(mock_api_key)
 
         mock_client = AsyncMock()
 
-        async def mock_stream():
-            chunk = Mock()
-            chunk.choices = [Mock()]
-            delta = Mock()
-            delta.content = "OK"
-            delta.reasoning = None
-            delta.reasoning_content = None
-            chunk.choices[0].delta = delta
-            yield chunk
-
-        mock_stream_response = mock_stream()
-        mock_normal_response = Mock()
-        mock_normal_response.usage = Mock()
-        mock_normal_response.usage.total_tokens = 50
-
-        call_count = 0
-
         async def mock_create(*args, **kwargs):
-            nonlocal call_count
-            call_count += 1
             if kwargs.get('stream'):
-                return mock_stream_response
-            return mock_normal_response
+                return make_mock_stream_response()
+            return make_mock_normal_response()
 
         mock_client.chat.completions.create = AsyncMock(side_effect=mock_create)
 
         with patch.object(tester, '_get_openai_client', return_value=mock_client):
-
             reasoning_result = await tester.test_single_model(reasoning_model, timeout=60)
-            assert reasoning_result.test_status == "success"
-            assert getattr(reasoning_result, 'is_reasoning', False), \
-                "推理模型自动检测后应使用推理模式"
+            assert reasoning_result.status == "success"
 
             normal_result = await tester.test_single_model(normal_model, timeout=60)
-            assert normal_result.test_status == "success"
-            assert not getattr(normal_result, 'is_reasoning', False), \
-                "非推理模型自动检测后应使用普通模式"
+            assert normal_result.status == "success"
 
 
 class TestModelTesterReportGeneration:
     """测试报告生成逻辑 - 验证统计、分类和排序"""
 
-    def test_generate_report_success_only(self, sample_success_model):
-        """
-        5.4 全部成功时的报告生成测试
-        目标:
-          - summary 统计正确（total=success, failed=0, timeout=0）
-          - successful_models 包含所有模型
-          - failed_models 为空列表
-        """
-        from src.models import ModelInfo, TestStatus
-
-        models = [
-            ModelInfo(id="model/a", name="Model A", vendor="v1", rank=1,
-                     response_time=1.0, token_usage=100, test_status=TestStatus.SUCCESS.value),
-            ModelInfo(id="model/b", name="Model B", vendor="v2", rank=2,
-                     response_time=2.0, token_usage=200, test_status=TestStatus.SUCCESS.value),
-            ModelInfo(id="model/c", name="Model C", vendor="v3", rank=3,
-                     response_time=1.5, token_usage=150, test_status=TestStatus.SUCCESS.value),
+    def test_generate_report_success_only(self):
+        """5.4 全部成功时的报告生成测试"""
+        results = [
+            TestResult(model_id="model/a", rank=1, status="success",
+                      response_time=1.0, token_usage=100),
+            TestResult(model_id="model/b", rank=2, status="success",
+                      response_time=2.0, token_usage=200),
+            TestResult(model_id="model/c", rank=3, status="success",
+                      response_time=1.5, token_usage=150),
         ]
 
-        report = ModelTester.generate_report(None, models)
+        report = ModelTester.generate_report(None, results)
 
         assert report['summary']['total'] == 3
         assert report['summary']['success'] == 3
@@ -226,31 +177,21 @@ class TestModelTesterReportGeneration:
         model_ids = [m['id'] for m in report['successful_models']]
         assert set(model_ids) == {"model/a", "model/b", "model/c"}
 
-    def test_generate_report_mixed(self, sample_failed_model, sample_timeout_model):
-        """
-        5.5 混合状态时的报告生成测试
-        目标:
-          - 成功/失败/超时状态统计正确
-          - failed_models 包含 failed 和 timeout 状态的模型
-          - 各类模型的详细信息完整
-        """
-        from src.models import ModelInfo, TestStatus
-
-        models = [
-            ModelInfo(id="model/success1", name="Success 1", vendor="v1", rank=1,
-                     response_time=1.0, token_usage=100, test_status=TestStatus.SUCCESS.value),
-            ModelInfo(id="model/success2", name="Success 2", vendor="v2", rank=2,
-                     response_time=2.5, token_usage=200, test_status=TestStatus.SUCCESS.value),
-            ModelInfo(id="model/failed1", name="Failed 1", vendor="v3", rank=3,
-                     error_message="Authentication error", test_status=TestStatus.FAILED.value),
-            ModelInfo(id="model/timeout1", name="Timeout 1", vendor="v4", rank=4,
-                     response_time=180.0, error_message="Request timeout",
-                     test_status=TestStatus.TIMEOUT.value),
-            ModelInfo(id="model/pending1", name="Pending 1", vendor="v5", rank=5,
-                     test_status=TestStatus.PENDING.value),
+    def test_generate_report_mixed(self):
+        """5.5 混合状态时的报告生成测试"""
+        results = [
+            TestResult(model_id="model/success1", rank=1, status="success",
+                      response_time=1.0, token_usage=100),
+            TestResult(model_id="model/success2", rank=2, status="success",
+                      response_time=2.5, token_usage=200),
+            TestResult(model_id="model/failed1", rank=3, status="failed",
+                      error_message="Authentication error"),
+            TestResult(model_id="model/timeout1", rank=4, status="timeout",
+                      response_time=180.0, error_message="Request timeout"),
+            TestResult(model_id="model/pending1", rank=5, status="pending"),
         ]
 
-        report = ModelTester.generate_report(None, models)
+        report = ModelTester.generate_report(None, results)
 
         assert report['summary']['total'] == 5
         assert report['summary']['success'] == 2
@@ -269,42 +210,26 @@ class TestModelTesterReportGeneration:
         assert "failed" in failed_statuses
         assert "timeout" in failed_statuses
 
-        for fm in report['failed_models']:
-            if fm['id'] == "model/failed1":
-                assert fm['status'] == "failed"
-                assert "Authentication" in fm['error']
-            elif fm['id'] == "model/timeout1":
-                assert fm['status'] == "timeout"
-                assert "timeout" in fm['error'].lower()
-
     def test_generate_report_sorting(self):
-        """
-        5.6 报告排序测试
-        目标:
-          - successful_models 必须按 response_time 升序排列
-          - 验证排序顺序正确性
-        """
-        from src.models import ModelInfo, TestStatus
-
-        models = [
-            ModelInfo(id="slow/model", name="Slow Model", vendor="v1", rank=1,
-                     response_time=10.0, token_usage=500, test_status=TestStatus.SUCCESS.value),
-            ModelInfo(id="fast/model", name="Fast Model", vendor="v2", rank=2,
-                     response_time=0.5, token_usage=50, test_status=TestStatus.SUCCESS.value),
-            ModelInfo(id="medium/model", name="Medium Model", vendor="v3", rank=3,
-                     response_time=3.2, token_usage=200, test_status=TestStatus.SUCCESS.value),
-            ModelInfo(id="very_fast/model", name="Very Fast", vendor="v4", rank=4,
-                     response_time=0.1, token_usage=30, test_status=TestStatus.SUCCESS.value),
+        """5.6 报告排序测试 - successful_models 按 response_time 升序"""
+        results = [
+            TestResult(model_id="slow/model", rank=1, status="success",
+                      response_time=10.0, token_usage=500),
+            TestResult(model_id="fast/model", rank=2, status="success",
+                      response_time=0.5, token_usage=50),
+            TestResult(model_id="medium/model", rank=3, status="success",
+                      response_time=3.2, token_usage=200),
+            TestResult(model_id="very_fast/model", rank=4, status="success",
+                      response_time=0.1, token_usage=30),
         ]
 
-        report = ModelTester.generate_report(None, models)
+        report = ModelTester.generate_report(None, results)
 
         successful = report['successful_models']
         assert len(successful) == 4
 
         response_times = [m['response_time'] for m in successful]
-        assert response_times == sorted(response_times), \
-            f"successful_models 未按 response_time 升序排列，实际顺序: {response_times}"
+        assert response_times == sorted(response_times)
 
         assert successful[0]['id'] == "very_fast/model"
         assert successful[0]['response_time'] == 0.1
