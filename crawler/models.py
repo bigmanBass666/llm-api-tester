@@ -1,54 +1,11 @@
 """
-NVIDIA 模型数据结构
+NVIDIA 模型数据结构 — crawler 层内部使用
 """
 
-from typing import List
 from dataclasses import dataclass
+from typing import List
 
-from src.models import ModelInfo as SrcModelInfo, TestResult
-
-
-# Phase 5 后删除此别名
-ModelInfo = SrcModelInfo
-
-
-# 预定义推理模型列表
-REASONING_MODELS = {
-    "deepseek-ai/deepseek-v4-flash",
-    "deepseek-ai/deepseek-v4-pro",
-    "z-ai/glm-5.1",
-    "z-ai/glm-4.7",
-}
-
-# 推理模型 ID 模式（用于动态匹配）
-REASONING_MODEL_PATTERNS = [
-    "deepseek-v4",
-    "glm-5.",
-    "glm-4.7",
-    "reasoning",
-    "thinking",
-]
-
-
-def is_reasoning_model(model_id: str) -> bool:
-    if not model_id:
-        return False
-    model_id_lower = model_id.lower()
-    if model_id in REASONING_MODELS:
-        return True
-    id_part = model_id.split("/")[-1].lower() if "/" in model_id else model_id.lower()
-    for pattern in REASONING_MODEL_PATTERNS:
-        if pattern.lower() in id_part:
-            return True
-    return False
-
-
-def get_reasoning_effort(model_id: str) -> str:
-    if "deepseek-v4" in model_id.lower():
-        return "high"
-    if "glm" in model_id.lower():
-        return "medium"
-    return "high"
+from src.models import ModelInfo, TestResult
 
 
 class _DefaultResult:

@@ -1,4 +1,4 @@
-from crawler.models import (
+from src.model_classifier import (
     REASONING_MODELS,
     REASONING_MODEL_PATTERNS,
     is_reasoning_model,

@@ -87,3 +87,43 @@ class ModelClassifier:
                 return ModelType.EMBEDDING
 
         return ModelType.TEXT
+
+
+# ── 推理模型识别 ──────────────────────────────────────
+
+# 精确匹配集合
+REASONING_MODELS = {
+    "deepseek-ai/deepseek-v4-flash",
+    "deepseek-ai/deepseek-v4-pro",
+    "z-ai/glm-5.1",
+    "z-ai/glm-4.7",
+}
+
+# 模糊匹配模式（用于动态匹配 model_id 中的关键词）
+REASONING_MODEL_PATTERNS = [
+    "deepseek-v4",
+    "glm-5.",
+    "glm-4.7",
+    "reasoning",
+    "thinking",
+]
+
+
+def is_reasoning_model(model_id: str) -> bool:
+    """判断模型是否为推理模型"""
+    if not model_id:
+        return False
+    if model_id in REASONING_MODELS:
+        return True
+    id_part = model_id.split("/")[-1].lower() if "/" in model_id else model_id.lower()
+    return any(p.lower() in id_part for p in REASONING_MODEL_PATTERNS)
+
+
+def get_reasoning_effort(model_id: str) -> str:
+    """获取推理模型的 effort 级别"""
+    mid = model_id.lower()
+    if "deepseek-v4" in mid:
+        return "high"
+    if "glm" in mid:
+        return "medium"
+    return "high"

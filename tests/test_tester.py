@@ -11,7 +11,7 @@ import asyncio
 from unittest.mock import Mock, patch, AsyncMock, MagicMock
 
 from crawler.tester import ModelTester
-from crawler.models import is_reasoning_model
+from src.model_classifier import is_reasoning_model
 from src.models import ModelInfo, TestResult, TestStatus
 
 

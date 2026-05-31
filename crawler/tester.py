@@ -8,8 +8,8 @@ import asyncio
 import httpx
 from typing import List, Optional
 
-from .models import ModelInfo, is_reasoning_model, get_reasoning_effort
-from src.models import TestResult
+from src.models import TestResult, ModelInfo
+from src.model_classifier import is_reasoning_model, get_reasoning_effort
 from .logger import ModelTestLogger
 from .errors import APIError, AuthenticationError, RateLimitError, ModelNotFoundError, TimeoutError as APITimeoutError, ServerError
 
@@ -221,8 +221,6 @@ class ModelTester:
                               timeout_reasoning: int = 180,
                               force_reasoning: bool = False,
                               force_normal: bool = False) -> List[TestResult]:
-        from .models import is_reasoning_model
-
         if self.logger:
             self.logger.log('INFO', 'batch_start', total=len(models), concurrency=concurrency)
         else:
@@ -370,7 +368,6 @@ async def test_top_models(limit: int = 50, concurrency: int = 5,
         for model in models:
             if model.id in manual_reasoning_models:
                 model.is_reasoning = True
-                from .models import get_reasoning_effort
                 model.reasoning_effort = get_reasoning_effort(model.id)
         print(f"🔧 手动指定 {len(manual_reasoning_models)} 个推理模型")
 
