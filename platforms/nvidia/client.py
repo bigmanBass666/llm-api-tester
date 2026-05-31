@@ -184,8 +184,13 @@ class NvidiaClient(OpenAICompatibleClient):
                           created: int = None, tags: list = None) -> 'ModelInfo':
         """统一的 ModelInfo 构建逻辑"""
         from platforms.common.utils import parse_model_id
+        from src.models import ScrapedMetadata
         id_vendor, short_name = parse_model_id(model_id)
         model_type = self._classifier.classify(model_id)
+
+        scraped = None
+        if created is not None or owned_by is not None:
+            scraped = ScrapedMetadata(created_at=created, api_owned_by=owned_by)
 
         return ModelInfo(
             id=model_id,
@@ -196,9 +201,8 @@ class NvidiaClient(OpenAICompatibleClient):
             max_tokens=4096,
             context_window=128000,
             description="",
-            created_at=created,
-            api_owned_by=owned_by,
             tags=tags or None,
+            scraped=scraped,
         )
 
     def _raw_model_to_info(self, raw: dict) -> 'ModelInfo':
