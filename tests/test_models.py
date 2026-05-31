@@ -19,16 +19,11 @@ def test_model_info_defaults():
     assert m.rank == 0
     assert m.is_available is True
     assert m.is_reasoning is False
-    assert m.test_status == "pending"
-    assert m.response_time == 0.0
-    assert m.error_message == ""
-    assert m.token_usage == 0
     assert m.is_downloadable is False
     assert m.is_free_endpoint is True
     assert m.tags is None
     assert m.category is None
     assert m.is_text_model is True
-    assert m.is_callable is False
     assert m.max_tokens == 4096
     assert m.context_window == 128000
     assert m.description == ""
@@ -36,13 +31,6 @@ def test_model_info_defaults():
     assert m.api_owned_by is None
     assert m.is_hosted is None
 
-def test_model_info_status_icon():
-    assert ModelInfo(id="a", name="A", test_status="pending").status_icon == "\u23f3"
-    assert ModelInfo(id="a", name="A", test_status="testing").status_icon == "\U0001f504"
-    assert ModelInfo(id="a", name="A", test_status="success").status_icon == "\u2705"
-    assert ModelInfo(id="a", name="A", test_status="failed").status_icon == "\u274c"
-    assert ModelInfo(id="a", name="A", test_status="timeout").status_icon == "\u23f0"
-    assert ModelInfo(id="a", name="A", test_status="unknown").status_icon == "\u2753"
 
 def test_model_info_to_dict():
     m = ModelInfo(
@@ -50,9 +38,6 @@ def test_model_info_to_dict():
         name="GPT-4",
         vendor="OpenAI",
         rank=1,
-        test_status="success",
-        response_time=1.23456,
-        error_message="none",
         tags=["chat", "large"],
         category="reasoning",
         is_free_endpoint=True,
@@ -63,20 +48,11 @@ def test_model_info_to_dict():
     assert d["name"] == "GPT-4"
     assert d["vendor"] == "OpenAI"
     assert d["rank"] == 1
-    assert d["test_status"] == "success"
-    assert d["response_time"] == 1.23
-    assert d["is_callable"] is True
     assert d["is_downloadable"] is False
     assert d["is_free_endpoint"] is True
     assert d["tags"] == ["chat", "large"]
     assert d["category"] == "reasoning"
-    assert d["error"] == "none"
-
-def test_model_info_to_dict_error_truncation():
-    long_err = "x" * 300
-    m = ModelInfo(id="a", name="A", error_message=long_err)
-    d = m.to_dict()
-    assert len(d["error"]) == 200
+    assert d["call_volume"] == ""
 
 def test_model_info_to_dict_empty_tags():
     m = ModelInfo(id="a", name="A", tags=None)
@@ -243,26 +219,6 @@ def test_enums_reasoning_effort_values():
 def test_enums_are_string_enums():
     assert isinstance(TestStatus.PENDING, str)
     assert isinstance(ReasoningEffort.HIGH, str)
-
-def test_model_info_is_callable_pending():
-    m = ModelInfo(id="a", name="A", test_status="pending")
-    assert m.is_callable is False
-
-def test_model_info_is_callable_success():
-    m = ModelInfo(id="a", name="A", test_status="success")
-    assert m.is_callable is True
-
-def test_model_info_is_callable_failed():
-    m = ModelInfo(id="a", name="A", test_status="failed")
-    assert m.is_callable is False
-
-def test_model_info_is_callable_timeout():
-    m = ModelInfo(id="a", name="A", test_status="timeout")
-    assert m.is_callable is False
-
-def test_model_info_is_callable_testing():
-    m = ModelInfo(id="a", name="A", test_status="testing")
-    assert m.is_callable is False
 
 def test_model_type_enum_values():
     assert ModelType.TEXT.value == "text"

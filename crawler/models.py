@@ -2,12 +2,14 @@
 NVIDIA 模型数据结构
 """
 
-from typing import Optional, List
+from typing import List
 from dataclasses import dataclass
 
-from src.models import ModelInfo as _SrcModelInfo
+from src.models import ModelInfo as SrcModelInfo, TestResult
 
-ModelInfo = _SrcModelInfo
+
+# Phase 5 后删除此别名
+ModelInfo = SrcModelInfo
 
 
 # 预定义推理模型列表
@@ -29,120 +31,94 @@ REASONING_MODEL_PATTERNS = [
 
 
 def is_reasoning_model(model_id: str) -> bool:
-    """
-    判断模型是否为推理模型
-
-    Args:
-        model_id: 模型 ID (如 deepseek-ai/deepseek-v4-flash)
-
-    Returns:
-        bool: 是否为推理模型
-    """
     if not model_id:
         return False
-
     model_id_lower = model_id.lower()
-
-    # 检查是否在预定义列表中
     if model_id in REASONING_MODELS:
         return True
-
-    # 检查 ID 部分（去掉 vendor 前缀）
     id_part = model_id.split("/")[-1].lower() if "/" in model_id else model_id.lower()
-
-    # 检查是否匹配推理模型模式
     for pattern in REASONING_MODEL_PATTERNS:
         if pattern.lower() in id_part:
             return True
-
     return False
 
 
 def get_reasoning_effort(model_id: str) -> str:
-    """
-    获取推理模型的推理努力程度
-
-    Args:
-        model_id: 模型 ID
-
-    Returns:
-        str: 推理努力程度 (low, medium, high)
-    """
-    # DeepSeek V4 系列默认 high
     if "deepseek-v4" in model_id.lower():
         return "high"
-
-    # GLM 系列默认 medium
     if "glm" in model_id.lower():
         return "medium"
+    return "high"
 
-    return "high"  # 默认值
+
+class _DefaultResult:
+    """用于 ModelStore 中无结果时的默认值"""
+    status = "pending"
+    response_time = 0.0
+    error_message = ""
 
 
 class ModelStore:
-    """模型数据存储"""
+    """模型数据存储 — models 存储身份信息，results 存储测试结果"""
 
     def __init__(self):
         self.models: List[ModelInfo] = []
+        self.results: dict = {}
 
     def add_model(self, model: ModelInfo):
-        """添加模型"""
-        # 避免重复
         if not any(m.id == model.id for m in self.models):
             self.models.append(model)
 
     def add_models(self, models: List[ModelInfo]):
-        """批量添加模型"""
         for m in models:
             self.add_model(m)
 
+    def set_results(self, results: list):
+        self.results = {r.model_id: r for r in results}
+
     def get_by_rank(self, start: int, end: int) -> List[ModelInfo]:
-        """按排名范围获取模型"""
         return [m for m in self.models if start <= m.rank <= end]
 
     def get_by_vendor(self, vendor: str) -> List[ModelInfo]:
-        """按供应商获取模型"""
         return [m for m in self.models if m.vendor == vendor]
 
+    def _result(self, m: ModelInfo):
+        return self.results.get(m.id, _DefaultResult())
+
     def get_available(self) -> List[ModelInfo]:
-        """获取可测试的模型"""
-        return [m for m in self.models if m.is_available and m.test_status == "pending"]
+        return [m for m in self.models if m.is_available and m.id not in self.results]
 
     def get_successful(self) -> List[ModelInfo]:
-        """获取测试成功的模型"""
-        return [m for m in self.models if m.test_status == "success"]
+        return [m for m in self.models if self._result(m).status == "success"]
 
     def get_failed(self) -> List[ModelInfo]:
-        """获取测试失败的模型"""
-        return [m for m in self.models if m.test_status in ("failed", "timeout")]
+        return [m for m in self.models if self._result(m).status in ("failed", "timeout")]
 
     def summary(self) -> dict:
-        """获取统计摘要"""
         return {
             "total": len(self.models),
-            "success": sum(1 for m in self.models if m.test_status == "success"),
-            "failed": sum(1 for m in self.models if m.test_status == "failed"),
-            "timeout": sum(1 for m in self.models if m.test_status == "timeout"),
-            "pending": sum(1 for m in self.models if m.test_status == "pending"),
-            "testing": sum(1 for m in self.models if m.test_status == "testing"),
+            "success": sum(1 for r in self.results.values() if r.status == "success"),
+            "failed": sum(1 for r in self.results.values() if r.status == "failed"),
+            "timeout": sum(1 for r in self.results.values() if r.status == "timeout"),
+            "pending": sum(1 for m in self.models if m.id not in self.results),
+            "testing": 0,
         }
 
     def to_list(self) -> List[dict]:
-        """转换为列表格式（包含标签信息）"""
         return [
             {
                 "rank": m.rank,
                 "id": m.id,
                 "vendor": m.vendor,
-                "status": m.test_status,
-                "response_time": m.response_time,
+                "status": self._result(m).status,
+                "response_time": self._result(m).response_time,
                 "is_downloadable": m.is_downloadable,
                 "is_free_endpoint": m.is_free_endpoint,
                 "tags": m.tags or [],
                 "category": m.category,
                 "is_text_model": m.is_text_model,
-                "is_callable": m.test_status == "success",  # 是否能被正常调用
-                "error": m.error_message[:100] if m.error_message else None,
+                "is_callable": self._result(m).status == "success",
+                "error": self._result(m).error_message[:100] if self._result(m).error_message else None,
             }
             for m in sorted(self.models, key=lambda x: x.rank)
         ]

@@ -88,14 +88,9 @@ class ModelInfo:
     max_tokens: int = 4096
     context_window: int = 128000
     description: str = ""
-    test_status: str = "pending"
-    response_time: float = 0.0
-    error_message: str = ""
-    token_usage: int = 0
-    test_date: Optional[str] = None
-    reasoning_effort: Optional[str] = None
     tags: Optional[List[str]] = None
     href: str = ""
+    # Phase 4b: 以下爬虫元数据字段将通过 scraped 属性访问
     call_volume: str = ""
     published_at: Optional[str] = None
     deprecation_info: Optional[str] = None
@@ -127,18 +122,6 @@ class ModelInfo:
         )
 
     @property
-    def status_icon(self) -> str:
-        icons = {
-            "pending": "⏳", "testing": "\U0001f504",
-            "success": "✅", "failed": "❌", "timeout": "⏰",
-        }
-        return icons.get(self.test_status, "❓")
-
-    @property
-    def is_callable(self) -> bool:
-        return self.test_status == "success"
-
-    @property
     def is_text_model(self) -> bool:
         return self.model_type == ModelType.TEXT
 
@@ -148,14 +131,11 @@ class ModelInfo:
             "name": self.name,
             "vendor": self.vendor,
             "rank": self.rank,
-            "test_status": self.test_status,
-            "response_time": round(self.response_time, 2),
             "is_downloadable": self.is_downloadable,
             "is_free_endpoint": self.is_free_endpoint,
             "tags": self.tags or [],
             "category": self.category,
             "is_text_model": self.is_text_model,
-            "is_callable": self.is_callable,
             "call_volume": self.call_volume,
             "published_at": self.published_at,
             "deprecation_info": self.deprecation_info,
@@ -163,7 +143,6 @@ class ModelInfo:
             "inference_provider": self.inference_provider,
             "created_at": self.created_at,
             "api_owned_by": self.api_owned_by,
-            "error": self.error_message[:200] if self.error_message else "",
         }
 
 
