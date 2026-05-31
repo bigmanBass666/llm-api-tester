@@ -52,7 +52,7 @@ async def run(platform, number=20, concurrency=5, timeout=30, max_time=0, sort_b
     # 过滤 API 中不存在的模型（收藏模式跳过）
     if not favorites:
         before_count = len(models)
-        models = [m for m in models if m.is_hosted is not False]
+        models = [m for m in models if (m.scraped.is_hosted if m.scraped else True)]
         if not quiet and before_count > len(models):
             skipped = before_count - len(models)
             print(f"🚫 已跳过 {skipped} 个 API 不可用的模型")
@@ -62,7 +62,8 @@ async def run(platform, number=20, concurrency=5, timeout=30, max_time=0, sort_b
             print("\n模型列表:")
             for m in models:
                 tags = f" [{' '.join(m.tags)}]" if m.tags else ""
-                api = " 🌐" if m.is_hosted else " ❌" if m.is_hosted is False else ""
+                s = m.scraped
+                api = " 🌐" if s and s.is_hosted else " ❌" if s and s.is_hosted is False else ""
                 print(f"  #{m.rank} {m.id}{tags}{api}")
         return
 

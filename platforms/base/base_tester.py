@@ -39,14 +39,7 @@ class BaseTester:
             "is_downloadable": model.is_downloadable,
             "is_free_endpoint": model.is_free_endpoint,
             "tags": model.tags,
-            "call_volume": model.call_volume,
-            "published_at": model.published_at,
-            "deprecation_info": model.deprecation_info,
-            "endpoint_type": model.endpoint_type,
-            "inference_provider": model.inference_provider,
-            "created_at": model.created_at,
-            "api_owned_by": model.api_owned_by,
-            "is_hosted": model.is_hosted,
+            "scraped": model.scraped,
         }
 
     def _classify_error(self, error: Exception) -> str:

@@ -43,7 +43,7 @@ async def list_models(platform: str):
         total = len(models)
         display_models = models[:50]
         for i, m in enumerate(display_models, 1):
-            owner = f"[{m.api_owned_by}]" if m.api_owned_by else ""
+            owner = f"[{m.scraped.api_owned_by}]" if (m.scraped and m.scraped.api_owned_by) else ""
             print(f"{i:<6}{m.id:<50}{owner}")
         if total > 50:
             print(f"\n共 {total} 个模型（仅显示前 50 个）")

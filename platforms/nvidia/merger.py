@@ -4,7 +4,7 @@ NVIDIA 模型数据合并器
 """
 
 from typing import List, Dict
-from src.models import ModelInfo
+from src.models import ModelInfo, ScrapedMetadata
 
 
 def build_api_index(api_models: List[ModelInfo]) -> Dict[str, ModelInfo]:
@@ -17,7 +17,7 @@ def merge_models(
 ) -> List[ModelInfo]:
     """
     合并爬虫和 API 数据。
-    爬虫为主：name, vendor, category, tags, call_volume, published_at, endpoint_type
+    爬虫为主：name, vendor, category, tags
     API 为主：created_at, api_owned_by, max_tokens, context_window
     """
     api_index = build_api_index(api_models)
@@ -26,8 +26,13 @@ def merge_models(
     for model in scraper_models:
         api = api_index.get(model.id)
         if api:
-            model.created_at = model.created_at or api.created_at
-            model.api_owned_by = model.api_owned_by or api.api_owned_by
+            # 合并 scraped 字段
+            if api.scraped:
+                if model.scraped:
+                    model.scraped.created_at = model.scraped.created_at or api.scraped.created_at
+                    model.scraped.api_owned_by = model.scraped.api_owned_by or api.scraped.api_owned_by
+                else:
+                    model.scraped = api.scraped
             if not model.description and api.description:
                 model.description = api.description
         merged.append(model)

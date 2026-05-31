@@ -73,7 +73,7 @@ class ScrapedMetadata:
 
 @dataclass
 class ModelInfo:
-    """全域统一的模型信息 — 合并了所有版本的字段"""
+    """全域统一的模型信息 — 身份字段 + 爬虫元数据"""
 
     id: str
     name: str
@@ -90,36 +90,7 @@ class ModelInfo:
     description: str = ""
     tags: Optional[List[str]] = None
     href: str = ""
-    # Phase 4b: 以下爬虫元数据字段将通过 scraped 属性访问
-    call_volume: str = ""
-    published_at: Optional[str] = None
-    deprecation_info: Optional[str] = None
-    endpoint_type: str = "unknown"
-    inference_provider: Optional[str] = None
-    created_at: Optional[int] = None
-    api_owned_by: Optional[str] = None
-    is_hosted: Optional[bool] = None
-
-    @property
-    def scraped(self) -> Optional['ScrapedMetadata']:
-        """桥接属性：从顶层字段构造 ScrapedMetadata（Phase 4b 后改为正式字段）"""
-        has_any = any([
-            self.call_volume, self.published_at, self.deprecation_info,
-            self.endpoint_type != "unknown", self.inference_provider,
-            self.created_at, self.api_owned_by, self.is_hosted is not None,
-        ])
-        if not has_any:
-            return None
-        return ScrapedMetadata(
-            call_volume=self.call_volume,
-            published_at=self.published_at,
-            deprecation_info=self.deprecation_info,
-            endpoint_type=self.endpoint_type,
-            inference_provider=self.inference_provider,
-            created_at=self.created_at,
-            api_owned_by=self.api_owned_by,
-            is_hosted=self.is_hosted,
-        )
+    scraped: Optional[ScrapedMetadata] = None
 
     @property
     def is_text_model(self) -> bool:
@@ -136,13 +107,6 @@ class ModelInfo:
             "tags": self.tags or [],
             "category": self.category,
             "is_text_model": self.is_text_model,
-            "call_volume": self.call_volume,
-            "published_at": self.published_at,
-            "deprecation_info": self.deprecation_info,
-            "endpoint_type": self.endpoint_type,
-            "inference_provider": self.inference_provider,
-            "created_at": self.created_at,
-            "api_owned_by": self.api_owned_by,
         }
 
 
@@ -161,14 +125,6 @@ class TestResult:
     tags: Optional[List[str]] = None
     reasoning_content: str = ""
     token_usage: int = 0
-    call_volume: str = ""
-    published_at: Optional[str] = None
-    deprecation_info: Optional[str] = None
-    endpoint_type: str = "unknown"
-    inference_provider: Optional[str] = None
-    created_at: Optional[int] = None
-    api_owned_by: Optional[str] = None
-    is_hosted: Optional[bool] = None
     scraped: Optional[ScrapedMetadata] = None
 
     @classmethod
@@ -182,19 +138,12 @@ class TestResult:
             is_downloadable=model.is_downloadable,
             is_free_endpoint=model.is_free_endpoint,
             tags=model.tags,
-            call_volume=model.call_volume,
-            published_at=model.published_at,
-            deprecation_info=model.deprecation_info,
-            endpoint_type=model.endpoint_type,
-            inference_provider=model.inference_provider,
-            created_at=model.created_at,
-            api_owned_by=model.api_owned_by,
-            is_hosted=model.is_hosted,
             scraped=scraped,
             **test_fields,
         )
 
     def to_dict(self) -> dict:
+        s = self.scraped
         return {
             "model_id": self.model_id,
             "model_type": self.model_type,
@@ -207,13 +156,14 @@ class TestResult:
             "is_free_endpoint": self.is_free_endpoint,
             "tags": self.tags or [],
             "token_usage": self.token_usage,
-            "call_volume": self.call_volume,
-            "published_at": self.published_at,
-            "deprecation_info": self.deprecation_info,
-            "endpoint_type": self.endpoint_type,
-            "inference_provider": self.inference_provider,
-            "created_at": self.created_at,
-            "api_owned_by": self.api_owned_by,
+            "call_volume": s.call_volume if s else "",
+            "published_at": s.published_at if s else None,
+            "deprecation_info": s.deprecation_info if s else None,
+            "endpoint_type": s.endpoint_type if s else "unknown",
+            "inference_provider": s.inference_provider if s else None,
+            "created_at": s.created_at if s else None,
+            "api_owned_by": s.api_owned_by if s else None,
+            "is_hosted": s.is_hosted if s else None,
         }
 
 

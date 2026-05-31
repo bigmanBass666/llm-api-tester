@@ -10,7 +10,7 @@ import ssl
 from typing import List, Dict, Optional
 import httpx
 
-from src.models import ModelInfo, ModelType
+from src.models import ModelInfo, ModelType, ScrapedMetadata
 from src.model_classifier import ModelClassifier
 from platforms.base.base_scraper import BaseScraper
 from src.platform_config import PlatformConfigLoader
@@ -125,9 +125,9 @@ class NvidiaScraper(BaseScraper):
 
                     # 用 API 元数据丰富模型信息
                     meta = api_model_map.get(f"__meta__:{full_id}")
-                    if meta:
-                        model.created_at = meta.get("created")
-                        model.api_owned_by = meta.get("owned_by")
+                    if meta and model.scraped:
+                        model.scraped.created_at = meta.get("created")
+                        model.scraped.api_owned_by = meta.get("owned_by")
 
                     # 去重
                     if model.id in existing_ids:
@@ -333,17 +333,18 @@ class NvidiaScraper(BaseScraper):
                         vendor=vendor,
                         rank=i,
                         is_available=True,
-                        test_status="pending",
                         is_downloadable=downloadable,
                         is_free_endpoint=free_endpoint,
                         tags=tags,
                         category=category,
                         description=description,
-                        call_volume=call_volume,
-                        published_at=published_at,
-                        deprecation_info=deprecation_info,
-                        endpoint_type=endpoint_type,
-                        is_hosted=final_id in api_model_map if api_model_map else None,
+                        scraped=ScrapedMetadata(
+                            call_volume=call_volume,
+                            published_at=published_at,
+                            deprecation_info=deprecation_info,
+                            endpoint_type=endpoint_type,
+                            is_hosted=final_id in api_model_map if api_model_map else None,
+                        ),
                     )
                     models.append(model)
 
@@ -352,7 +353,7 @@ class NvidiaScraper(BaseScraper):
                         tag_str = ", ".join(tags) if tags else "无"
                         cv_str = f" | 📞{call_volume}" if call_volume else ""
                         pub_str = f" | 📅{published_at}" if published_at else ""
-                        api_str = " | 🌐API" if model.is_hosted else " | ❌no-API"
+                        api_str = " | 🌐API" if (model.scraped and model.scraped.is_hosted) else " | ❌no-API"
                         print(f"  #{i}: {final_id} [{tag_str}]{cv_str}{pub_str}{api_str}", flush=True)
 
                 except Exception as e:

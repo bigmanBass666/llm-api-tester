@@ -27,9 +27,7 @@ def test_model_info_defaults():
     assert m.max_tokens == 4096
     assert m.context_window == 128000
     assert m.description == ""
-    assert m.created_at is None
-    assert m.api_owned_by is None
-    assert m.is_hosted is None
+    assert m.scraped is None
 
 
 def test_model_info_to_dict():
@@ -52,7 +50,6 @@ def test_model_info_to_dict():
     assert d["is_free_endpoint"] is True
     assert d["tags"] == ["chat", "large"]
     assert d["category"] == "reasoning"
-    assert d["call_volume"] == ""
 
 def test_model_info_to_dict_empty_tags():
     m = ModelInfo(id="a", name="A", tags=None)
@@ -82,9 +79,7 @@ def test_test_result_defaults():
     assert r.tags is None
     assert r.reasoning_content == ""
     assert r.token_usage == 0
-    assert r.created_at is None
-    assert r.api_owned_by is None
-    assert r.is_hosted is None
+    assert r.scraped is None
 
 def test_test_result_to_dict():
     r = TestResult(
@@ -111,23 +106,20 @@ def test_test_result_to_dict():
     assert d["tags"] == ["free"]
     assert d["token_usage"] == 42
 
-def test_model_info_to_dict_includes_api_fields():
+def test_model_info_scraped_metadata():
     m = ModelInfo(
         id="meta/llama-3.3",
         name="llama-3.3",
         vendor="meta",
-        created_at=1724000000,
-        api_owned_by="meta",
+        scraped=ScrapedMetadata(created_at=1724000000, api_owned_by="meta"),
     )
-    d = m.to_dict()
-    assert d["created_at"] == 1724000000
-    assert d["api_owned_by"] == "meta"
+    assert m.scraped.created_at == 1724000000
+    assert m.scraped.api_owned_by == "meta"
 
 def test_test_result_to_dict_includes_api_fields():
     r = TestResult(
         model_id="meta/llama-3.3",
-        created_at=1724000000,
-        api_owned_by="meta",
+        scraped=ScrapedMetadata(created_at=1724000000, api_owned_by="meta"),
     )
     d = r.to_dict()
     assert d["created_at"] == 1724000000
@@ -301,20 +293,21 @@ class TestModelInfoScrapedProperty:
         assert m.scraped is None
 
     def test_with_scraper_data(self):
-        m = ModelInfo(id="m1", name="test", call_volume="1M", is_hosted=True)
+        m = ModelInfo(id="m1", name="test",
+                       scraped=ScrapedMetadata(call_volume="1M", is_hosted=True))
         sm = m.scraped
         assert sm is not None
         assert sm.call_volume == "1M"
         assert sm.is_hosted is True
 
-    def test_with_endpoint_type(self):
-        m = ModelInfo(id="m1", name="test", endpoint_type="free")
+    def test_with_scraped_metadata(self):
+        m = ModelInfo(id="m1", name="test", scraped=ScrapedMetadata(endpoint_type="free"))
         sm = m.scraped
         assert sm is not None
         assert sm.endpoint_type == "free"
 
     def test_with_created_at(self):
-        m = ModelInfo(id="m1", name="test", created_at=1234567890)
+        m = ModelInfo(id="m1", name="test", scraped=ScrapedMetadata(created_at=1234567890))
         sm = m.scraped
         assert sm is not None
         assert sm.created_at == 1234567890
@@ -338,18 +331,21 @@ class TestResultFromModelInfo:
 
     def test_scraper_metadata_copied(self):
         m = ModelInfo(id="m1", name="test",
-                       call_volume="500K", endpoint_type="partner",
-                       created_at=1234567890, api_owned_by="meta",
-                       is_hosted=True)
+                       scraped=ScrapedMetadata(
+                           call_volume="500K", endpoint_type="partner",
+                           created_at=1234567890, api_owned_by="meta",
+                           is_hosted=True))
         r = TestResult.from_model_info(m, status="success")
-        assert r.call_volume == "500K"
-        assert r.endpoint_type == "partner"
-        assert r.created_at == 1234567890
-        assert r.api_owned_by == "meta"
-        assert r.is_hosted is True
+        assert r.scraped is not None
+        assert r.scraped.call_volume == "500K"
+        assert r.scraped.endpoint_type == "partner"
+        assert r.scraped.created_at == 1234567890
+        assert r.scraped.api_owned_by == "meta"
+        assert r.scraped.is_hosted is True
 
     def test_scraped_metadata_field_set(self):
-        m = ModelInfo(id="m1", name="test", call_volume="100", is_hosted=True)
+        m = ModelInfo(id="m1", name="test",
+                       scraped=ScrapedMetadata(call_volume="100", is_hosted=True))
         r = TestResult.from_model_info(m, status="success")
         assert r.scraped is not None
         assert r.scraped.call_volume == "100"
