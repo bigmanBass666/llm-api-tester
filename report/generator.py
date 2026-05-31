@@ -13,6 +13,14 @@ from src.models import TestResult, TestReport
 class MarkdownFormatter:
     """Markdown 报告格式化器"""
 
+    TAG_ICONS = {
+        "downloadable": "📥",
+        "free": "🔓",
+        "flash": "⚡",
+        "thinking": "🤔",
+        "partner": "🤝",
+    }
+
     def _get_scraped_field(self, result: 'TestResult', field: str):
         """从 TestResult 获取爬虫元数据字段（优先 scraped，回退到顶层字段）"""
         if result.scraped is not None:
