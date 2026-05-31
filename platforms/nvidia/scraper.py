@@ -186,144 +186,21 @@ class NvidiaScraper(BaseScraper):
         models = []
 
         try:
-            # 使用统一选择器定位模型卡片
-            model_cards = await self.page.query_selector_all(self.SELECTORS.get('card_root', "[data-testid='nv-card-root']"))
+            model_cards = await self.page.query_selector_all(
+                self.SELECTORS.get('card_root', "[data-testid='nv-card-root']")
+            )
             print(f"   找到 {len(model_cards)} 个模型卡片", flush=True)
 
             for i, card in enumerate(model_cards[:self._CONFIG['max_cards_per_page']], 1):
                 try:
-                    # 初始化默认值
-                    model_name = f"unknown-{i}"
-                    vendor = "unknown"
-                    tags = []
-                    downloadable = False
-                    free_endpoint = True
-                    full_model_id = None
-                    category = None
-                    description = ""
+                    full_model_id, model_name, vendor = await self._parse_card_identity(card, i)
+                    tags, downloadable, free_endpoint = await self._parse_card_tags(card)
+                    description, category = await self._parse_card_category_desc(card)
+                    call_volume, published_at = await self._parse_card_metadata(card)
+                    endpoint_type = await self._parse_card_endpoint(card, free_endpoint)
+                    deprecation_info = await self._parse_card_deprecation(card)
 
-                    # 提取完整模型 ID（优先从链接获取）
-                    try:
-                        card_link = await card.query_selector(self.SELECTORS.get('model_link', "a[data-nvtrack-nav-object='artifact-card']"))
-                        if card_link:
-                            href = await card_link.get_attribute("href")
-                            if href and href.startswith("/"):
-                                full_model_id = href.lstrip("/")
-                    except Exception:
-                        pass
-
-                    # 获取模型名称
-                    try:
-                        model_name_elem = await card.query_selector("h1, h2, h3, h4, h5")
-                        if model_name_elem:
-                            model_name = (await model_name_elem.text_content() or "").strip()
-
-                        # 如果没有名称但获取到了完整ID，使用ID最后部分
-                        if model_name == f"unknown-{i}" and full_model_id:
-                            model_name = full_model_id.split("/")[-1] if "/" in full_model_id else full_model_id
-                    except Exception:
-                        pass
-
-                    # 提取发布商信息
-                    try:
-                        vendor_link = await card.query_selector(self.SELECTORS.get('vendor_link', "a[data-nvtrack-nav-object='artifact-card-publisher-link']"))
-                        if vendor_link:
-                            vendor_text = await vendor_link.text_content()
-                            if vendor_text:
-                                vendor = vendor_text.strip().lower().replace(" ", "-")
-                        elif full_model_id and "/" in full_model_id:
-                            vendor = full_model_id.split("/")[0]
-                    except Exception:
-                        if full_model_id and "/" in full_model_id:
-                            vendor = full_model_id.split("/")[0]
-
-                    # 提取标签
-                    try:
-                        badge_elements = await card.query_selector_all(self.SELECTORS.get('badge', "[data-testid='nv-badge']"))
-                        for badge in badge_elements:
-                            try:
-                                tag_text = await badge.text_content()
-                                if tag_text:
-                                    tag_text = tag_text.strip().lower()
-                                    tags.append(tag_text)
-
-                                    if 'downloadable' in tag_text or 'download' in tag_text:
-                                        downloadable = True
-                                    elif 'free' in tag_text:
-                                        free_endpoint = True
-                                    elif 'paid' in tag_text or 'enterprise' in tag_text:
-                                        free_endpoint = False
-                            except Exception:
-                                continue
-                    except Exception:
-                        pass
-
-                    # 提取 Category Tag 和 Description（从卡片 innerText）
-                    try:
-                        full_text = await card.inner_text()
-                        lines = [line.strip() for line in full_text.split('\n') if line.strip()]
-                        # lines 结构: [0]=Vendor, [1]=Badge, [2]=Model Name, [3]=Description, [4]=Category Tag
-                        if len(lines) >= 4:
-                            description = lines[3]
-                        if len(lines) >= 5:
-                            category = lines[4].lower()
-                    except Exception:
-                        pass
-
-                    # 提取调用量和发布时间（从 span[aria-label] 属性）
-                    call_volume = ""
-                    published_at = None
-                    try:
-                        span_elements = await card.query_selector_all("span[aria-label]")
-                        for span in span_elements:
-                            aria_label = await span.get_attribute("aria-label")
-                            if not aria_label:
-                                continue
-                            if "API calls" in aria_label:
-                                call_volume = aria_label
-                            elif any(m in aria_label for m in ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]):
-                                published_at = aria_label
-                    except Exception:
-                        pass
-
-                    # 提取端点类型（Free/Partner Endpoint）
-                    endpoint_type = "unknown"
-                    try:
-                        badge_elements = await card.query_selector_all(self.SELECTORS.get('badge', "[data-testid='nv-badge']"))
-                        for badge in badge_elements:
-                            try:
-                                badge_text = await badge.text_content()
-                                if badge_text:
-                                    badge_lower = badge_text.strip().lower()
-                                    if 'partner' in badge_lower or 'enterprise' in badge_lower:
-                                        endpoint_type = "partner"
-                                    elif 'free' in badge_lower:
-                                        endpoint_type = "free"
-                            except Exception:
-                                continue
-                        if endpoint_type == "unknown":
-                            if free_endpoint:
-                                endpoint_type = "free"
-                            else:
-                                endpoint_type = "partner"
-                    except Exception:
-                        pass
-
-                    # 提取弃用警告（从卡片文本中匹配 "Deprecation in" 模式）
-                    deprecation_info = None
-                    try:
-                        full_text_depr = await card.inner_text()
-                        import re
-                        depr_match = re.search(r'Deprecation\s+in\s+\w+\s+\d{4}', full_text_depr, re.IGNORECASE)
-                        if depr_match:
-                            deprecation_info = depr_match.group(0)
-                    except Exception:
-                        pass
-
-                    # 确定最终模型 ID
                     final_id = full_model_id if full_model_id else model_name
-
-                    # 判断模型类型
                     classified_type = self._classifier.classify(final_id, category)
 
                     model = ModelInfo(
@@ -348,7 +225,6 @@ class NvidiaScraper(BaseScraper):
                     )
                     models.append(model)
 
-                    # 打印前5个和最后一个的详情
                     if i <= 3 or i == len(model_cards):
                         tag_str = ", ".join(tags) if tags else "无"
                         cv_str = f" | 📞{call_volume}" if call_volume else ""
@@ -364,6 +240,156 @@ class NvidiaScraper(BaseScraper):
             print(f"⚠️ 页面提取失败: {e}", flush=True)
 
         return models
+
+    async def _parse_card_identity(self, card, i: int):
+        """解析卡片身份字段：full_model_id, model_name, vendor"""
+        model_name = f"unknown-{i}"
+        vendor = "unknown"
+        full_model_id = None
+
+        try:
+            card_link = await card.query_selector(
+                self.SELECTORS.get('model_link', "a[data-nvtrack-nav-object='artifact-card']")
+            )
+            if card_link:
+                href = await card_link.get_attribute("href")
+                if href and href.startswith("/"):
+                    full_model_id = href.lstrip("/")
+        except Exception:
+            pass
+
+        try:
+            model_name_elem = await card.query_selector("h1, h2, h3, h4, h5")
+            if model_name_elem:
+                model_name = (await model_name_elem.text_content() or "").strip()
+            if model_name == f"unknown-{i}" and full_model_id:
+                model_name = full_model_id.split("/")[-1] if "/" in full_model_id else full_model_id
+        except Exception:
+            pass
+
+        try:
+            vendor_link = await card.query_selector(
+                self.SELECTORS.get('vendor_link', "a[data-nvtrack-nav-object='artifact-card-publisher-link']")
+            )
+            if vendor_link:
+                vendor_text = await vendor_link.text_content()
+                if vendor_text:
+                    vendor = vendor_text.strip().lower().replace(" ", "-")
+            elif full_model_id and "/" in full_model_id:
+                vendor = full_model_id.split("/")[0]
+        except Exception:
+            if full_model_id and "/" in full_model_id:
+                vendor = full_model_id.split("/")[0]
+
+        return full_model_id, model_name, vendor
+
+    async def _parse_card_tags(self, card):
+        """解析卡片标签：tags, downloadable, free_endpoint"""
+        tags = []
+        downloadable = False
+        free_endpoint = True
+
+        try:
+            badge_elements = await card.query_selector_all(
+                self.SELECTORS.get('badge', "[data-testid='nv-badge']")
+            )
+            for badge in badge_elements:
+                try:
+                    tag_text = await badge.text_content()
+                    if tag_text:
+                        tag_text = tag_text.strip().lower()
+                        tags.append(tag_text)
+                        if 'downloadable' in tag_text or 'download' in tag_text:
+                            downloadable = True
+                        elif 'free' in tag_text:
+                            free_endpoint = True
+                        elif 'paid' in tag_text or 'enterprise' in tag_text:
+                            free_endpoint = False
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+        return tags, downloadable, free_endpoint
+
+    async def _parse_card_category_desc(self, card):
+        """解析卡片 category 和 description（从 innerText 行结构提取）"""
+        description = ""
+        category = None
+
+        try:
+            full_text = await card.inner_text()
+            lines = [line.strip() for line in full_text.split('\n') if line.strip()]
+            # lines: [0]=Vendor, [1]=Badge, [2]=Model Name, [3]=Description, [4]=Category Tag
+            if len(lines) >= 4:
+                description = lines[3]
+            if len(lines) >= 5:
+                category = lines[4].lower()
+        except Exception:
+            pass
+
+        return description, category
+
+    async def _parse_card_metadata(self, card):
+        """解析卡片元数据：call_volume, published_at（从 span[aria-label] 提取）"""
+        call_volume = ""
+        published_at = None
+
+        try:
+            span_elements = await card.query_selector_all("span[aria-label]")
+            for span in span_elements:
+                aria_label = await span.get_attribute("aria-label")
+                if not aria_label:
+                    continue
+                if "API calls" in aria_label:
+                    call_volume = aria_label
+                elif any(m in aria_label for m in [
+                    "January", "February", "March", "April", "May", "June",
+                    "July", "August", "September", "October", "November", "December"
+                ]):
+                    published_at = aria_label
+        except Exception:
+            pass
+
+        return call_volume, published_at
+
+    async def _parse_card_endpoint(self, card, free_endpoint: bool):
+        """解析端点类型：free / partner"""
+        endpoint_type = "unknown"
+
+        try:
+            badge_elements = await card.query_selector_all(
+                self.SELECTORS.get('badge', "[data-testid='nv-badge']")
+            )
+            for badge in badge_elements:
+                try:
+                    badge_text = await badge.text_content()
+                    if badge_text:
+                        badge_lower = badge_text.strip().lower()
+                        if 'partner' in badge_lower or 'enterprise' in badge_lower:
+                            endpoint_type = "partner"
+                        elif 'free' in badge_lower:
+                            endpoint_type = "free"
+                except Exception:
+                    continue
+            if endpoint_type == "unknown":
+                endpoint_type = "free" if free_endpoint else "partner"
+        except Exception:
+            pass
+
+        return endpoint_type
+
+    async def _parse_card_deprecation(self, card):
+        """解析弃用警告信息"""
+        try:
+            full_text = await card.inner_text()
+            import re
+            match = re.search(r'Deprecation\s+in\s+\w+\s+\d{4}', full_text, re.IGNORECASE)
+            if match:
+                return match.group(0)
+        except Exception:
+            pass
+        return None
 
     async def _fetch_api_model_map(self) -> Dict[str, str]:
         """
