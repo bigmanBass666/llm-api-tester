@@ -6,7 +6,13 @@
 
 import pytest
 from src.config_loader import ConfigLoader
-ConfigLoader.load_env('.env.local')
+
+
+@pytest.fixture(scope="session", autouse=True)
+def load_env():
+    """加载环境配置（替代模块级副作用）"""
+    ConfigLoader.load_env('.env.local')
+
 
 from src.models import ModelInfo, ChatMessage, ModelType
 from src.model_classifier import ModelClassifier

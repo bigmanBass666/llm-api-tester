@@ -6,8 +6,12 @@ def mock_api_key():
 
 def test_nvidia_client_importable():
     from platforms.nvidia.client import NvidiaClient
-    assert hasattr(NvidiaClient, 'NvidiaClient') or True  # 类已定义
+    # 验证类已正确定义（不是 None，可被调用）
+    assert NvidiaClient is not None
     assert callable(NvidiaClient)
+    # 验证平台注册信息已附加
+    assert hasattr(NvidiaClient, 'platform_name')
+    assert NvidiaClient.platform_name == 'nvidia'
 
 def test_nvidia_client_has_list_models(mock_api_key):
     from platforms.nvidia.client import NvidiaClient
