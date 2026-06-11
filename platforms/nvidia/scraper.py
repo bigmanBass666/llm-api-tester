@@ -6,6 +6,7 @@ NVIDIA 页面爬虫
 
 import asyncio
 import os
+import re
 import ssl
 from typing import List, Dict, Optional
 import httpx
