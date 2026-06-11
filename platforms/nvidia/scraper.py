@@ -6,6 +6,7 @@ NVIDIA 页面爬虫
 
 import asyncio
 import os
+import re
 import ssl
 from typing import List, Dict, Optional
 import httpx
@@ -88,8 +89,26 @@ class NvidiaScraper(BaseScraper):
         try:
             await self._init_browser()
 
-            await self.page.goto(base_url, wait_until="networkidle")
+            await self.page.goto(base_url, wait_until="domcontentloaded")
             await self.page.wait_for_timeout(self._CONFIG['page_load_wait_ms'])
+
+            # 等待模型卡片加载完成
+            try:
+                await self.page.wait_for_selector(
+                    self.SELECTORS.get('card_root', "[data-testid='nv-card-root']"),
+                    timeout=self._CONFIG['navigation_timeout_ms']
+                )
+            except Exception:
+                pass
+
+            # Cookie 关闭可能导致页面导航，需要重新等待卡片加载
+            try:
+                await self.page.wait_for_selector(
+                    self.SELECTORS.get('card_root', "[data-testid='nv-card-root']"),
+                    timeout=self._CONFIG['navigation_timeout_ms']
+                )
+            except Exception:
+                await self.page.wait_for_timeout(self._CONFIG['page_load_wait_ms'])
 
             await self._close_cookie_consent()
 
@@ -383,7 +402,6 @@ class NvidiaScraper(BaseScraper):
         """解析弃用警告信息"""
         try:
             full_text = await card.inner_text()
-            import re
             match = re.search(r'Deprecation\s+in\s+\w+\s+\d{4}', full_text, re.IGNORECASE)
             if match:
                 return match.group(0)
@@ -484,10 +502,14 @@ class NvidiaScraper(BaseScraper):
 
             # 等待页面加载
             await self.page.wait_for_timeout(self._CONFIG['pagination_wait_ms'])
+            # 等待新页面卡片加载
             try:
-                await self.page.wait_for_load_state("networkidle", timeout=self._CONFIG['network_idle_timeout_ms'])
+                await self.page.wait_for_selector(
+                    self.SELECTORS.get('card_root', "[data-testid='nv-card-root']"),
+                    timeout=self._CONFIG['pagination_wait_ms']
+                )
             except Exception:
-                pass
+                await self.page.wait_for_timeout(self._CONFIG['pagination_wait_ms'])
 
             return True
 
