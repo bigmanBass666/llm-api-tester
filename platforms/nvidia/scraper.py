@@ -88,10 +88,27 @@ class NvidiaScraper(BaseScraper):
         try:
             await self._init_browser()
 
-            await self.page.goto(base_url, wait_until="networkidle")
+            await self.page.goto(base_url, wait_until="domcontentloaded")
             await self.page.wait_for_timeout(self._CONFIG['page_load_wait_ms'])
+            # 等待模型卡片加载完成
+            try:
+                await self.page.wait_for_selector(
+                    self.SELECTORS.get('card_root', "[data-testid='nv-card-root']"),
+                    timeout=self._CONFIG['navigation_timeout_ms']
+                )
+            except Exception:
+                pass
 
             await self._close_cookie_consent()
+
+            # Cookie 关闭可能导致页面导航，需要重新等待卡片加载
+            try:
+                await self.page.wait_for_selector(
+                    self.SELECTORS.get('card_root', "[data-testid='nv-card-root']"),
+                    timeout=self._CONFIG['navigation_timeout_ms']
+                )
+            except Exception:
+                await self.page.wait_for_timeout(self._CONFIG['page_load_wait_ms'])
 
             api_model_map = await self._fetch_api_model_map()
             print(f"📡 API 可用模型: {len(api_model_map)} 个", flush=True)
@@ -458,10 +475,14 @@ class NvidiaScraper(BaseScraper):
 
             # 等待页面加载
             await self.page.wait_for_timeout(self._CONFIG['pagination_wait_ms'])
+            # 翻页后等待新卡片加载
             try:
-                await self.page.wait_for_load_state("networkidle", timeout=self._CONFIG['network_idle_timeout_ms'])
+                await self.page.wait_for_selector(
+                    self.SELECTORS.get('card_root', "[data-testid='nv-card-root']"),
+                    timeout=self._CONFIG['pagination_wait_ms']
+                )
             except Exception:
-                pass
+                await self.page.wait_for_timeout(self._CONFIG['pagination_wait_ms'])
 
             return True
 
