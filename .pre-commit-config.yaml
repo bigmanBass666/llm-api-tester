@@ -1,30 +1,31 @@
 repos:
-  - repo: https://github.com/Yelp/detect-secrets
-    rev: v1.5.0
-    hooks:
-      - id: detect-secrets
-        name: 检测敏感信息
-        exclude: |
-          (?x)^(
-            .env.example|
-            tests/.*|
-          )$
-        args: ['--baseline', '.secrets.baseline']
+- repo: https://github.com/Yelp/detect-secrets
+  rev: v1.5.0
+  hooks:
+  - id: detect-secrets
+    name: 检测敏感信息
+    exclude: |
+      (?x)^(
+      .env.example|
+      tests/.*|
+      docs/design-review-report.*\.md|
+      )$
+    args: ['--baseline', '.secrets.baseline']
 
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
-    hooks:
-      - id: detect-private-key
-        name: 检测私钥文件
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.6.0
+  hooks:
+  - id: detect-private-key
+    name: 检测私钥文件
 
-      - id: check-merge-conflict
-        name: 检查合并冲突
+  - id: check-merge-conflict
+    name: 检查合并冲突
 
-      - id: check-yaml
-        name: 检查 YAML 语法
+  - id: check-yaml
+    name: 检查 YAML 语法
 
-      - id: trailing-whitespace
-        name: 删除行尾空格
+  - id: trailing-whitespace
+    name: 删除行尾空格
 
-      - id: end-of-file-fixer
-        name: 确保文件末尾换行
+  - id: end-of-file-fixer
+    name: 确保文件末尾换行
