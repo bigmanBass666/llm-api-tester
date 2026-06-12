@@ -104,3 +104,6 @@ htmlcov/
 # Large files
 *.zip
 *.tar.gz
+scratch/
+tmp_fix_*.py
+tmp_re_fix.py.ps1
