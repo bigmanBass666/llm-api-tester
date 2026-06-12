@@ -66,6 +66,7 @@ class PlatformConfigLoader:
     _configs: Dict[str, PlatformConfig] = {}
     _yaml_path: Path = Path(__file__).parent.parent / 'configs' / 'platforms.yaml'
     _loaded: bool = False
+    _raw_data: Dict[str, dict] = {}
 
     @classmethod
     def load_all(cls) -> Dict[str, PlatformConfig]:
@@ -92,6 +93,8 @@ class PlatformConfigLoader:
 
         defaults = yaml_data.get('defaults', {})
         platforms_data = yaml_data.get('platforms', {})
+
+        cls._raw_data = platforms_data
 
         for platform_name, platform_data in platforms_data.items():
             config = cls._build_platform_config(platform_name, platform_data, defaults)
@@ -282,8 +285,26 @@ class PlatformConfigLoader:
     def reload(cls):
         """重新加载配置（用于配置更新后）"""
         cls._configs.clear()
+        cls._raw_data.clear()
         cls._loaded = False
         return cls.load_all()
+
+    @classmethod
+    def get_platform_models(cls, platform_name: str) -> List[Dict[str, object]]:
+        """获取平台的预定义模型列表（来自 platforms.yaml 中的 models 字段）
+
+        Args:
+            platform_name: 平台名称
+
+        Returns:
+            模型配置列表，每个元素为包含 id, name 等字段的字典
+        """
+        cls.load_all()
+        platform_data = cls._raw_data.get(platform_name, {})
+        models = platform_data.get('models', {})
+        if isinstance(models, dict):
+            return models.get('free', [])
+        return []
 
     @classmethod
     def is_loaded(cls) -> bool:
@@ -296,6 +317,4 @@ __all__ = [
     'ClientConfig',
     'PlatformConfig',
     'PlatformConfigLoader',
-    'get_image_model_categories',
-    'get_image_model_keywords',
 ]

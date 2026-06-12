@@ -10,7 +10,6 @@ API Key 全面探索性测试
 """
 
 import os
-import sys
 import time
 import json
 from dataclasses import dataclass, asdict
@@ -18,14 +17,12 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 
 # 添加项目根目录到路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from src.config_loader import ConfigLoader
 from src.platform_config import PlatformConfigLoader
 from src.models import ModelInfo, ChatMessage
 from platforms.common.openai_compatible_client import OpenAICompatibleClient, KimiClient, MiniMaxClient
 from platforms.zhipu.client import ZhipuClient
-
 
 @dataclass
 class KeyTestResult:
@@ -57,7 +54,6 @@ class KeyTestResult:
 
     def to_dict(self) -> dict:
         return asdict(self)
-
 
 class KeyExplorationTestSuite:
     """API Key 全面探索性测试套件"""
@@ -396,7 +392,6 @@ class KeyExplorationTestSuite:
         print(f"💾 原始数据已保存: {filename}")
         return filename
 
-
 def main():
     """主函数"""
     print("=" * 60)
@@ -431,7 +426,6 @@ def main():
         # 按平台打印
         for platform, stats in summary.get("platforms", {}).items():
             print(f"{platform.upper()}: {stats['success']}/{stats['total']} 成功")
-
 
 if __name__ == "__main__":
     main()

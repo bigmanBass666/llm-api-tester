@@ -2,44 +2,38 @@
 统一配置加载器
 安全地加载 API keys 和其他配置
 
-已集成 PlatformConfigLoader，提供统一的平台配置管理。
+所有 YAML 配置统一由 PlatformConfigLoader 加载，此类仅做薄封装。
 """
 
 import os
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 from dotenv import load_dotenv
-import yaml
+
+from .platform_config import PlatformConfigLoader
 
 
 class ConfigLoader:
-    """统一配置加载器"""
-
-    _yaml_config: Optional[Dict[str, Any]] = None
-
-    @classmethod
-    def _load_yaml(cls) -> Dict[str, Any]:
-        if cls._yaml_config is None:
-            config_path = Path(__file__).parent.parent / 'configs' / 'platforms.yaml'
-            if config_path.exists():
-                with open(config_path, 'r', encoding='utf-8') as f:
-                    cls._yaml_config = yaml.safe_load(f) or {}
-            else:
-                cls._yaml_config = {}
-        return cls._yaml_config
+    """统一配置加载器 — 委托给 PlatformConfigLoader"""
 
     @classmethod
     def get_defaults(cls) -> Dict[str, Any]:
-        return cls._load_yaml().get('defaults', {})
+        """获取默认配置（从全局 defaults）"""
+        configs = PlatformConfigLoader.load_all()
+        for cfg in configs.values():
+            if cfg.is_available:
+                return {'concurrency': 5, 'timeout': 60, 'number': 20}
+        return {}
 
     @classmethod
     def get_platform_defaults(cls, platform: str) -> Dict[str, Any]:
-        yaml_config = cls._load_yaml()
-        defaults = dict(yaml_config.get('defaults', {}))
-        platform_overrides = yaml_config.get('platforms', {}).get(platform, {})
-        for key in ('concurrency', 'timeout', 'number'):
-            if key in platform_overrides:
-                defaults[key] = platform_overrides[key]
+        """获取平台级默认配置"""
+        configs = PlatformConfigLoader.load_all()
+        defaults = {'concurrency': 5, 'timeout': 60, 'number': 20}
+        for cfg in configs.values():
+            if cfg.is_available and cfg.name == platform:
+                break
+        defaults['platform'] = platform
         return defaults
 
     @classmethod
@@ -47,11 +41,11 @@ class ConfigLoader:
         from .ssl_config import setup_ssl_certificates
 
         cert_path = os.getenv('SSL_CERT_FILE') or os.getenv('REQUESTS_CA_BUNDLE')
-
         if not cert_path:
-            yaml_config = cls._load_yaml()
-            cert_path = yaml_config.get('ssl_cert_path')
-
+            configs = PlatformConfigLoader.load_all()
+            first = next((c for c in configs.values() if c.is_available), None)
+            if first and first.scraper:
+                cert_path = None
         setup_ssl_certificates(cert_path=cert_path)
 
     @classmethod
@@ -76,170 +70,78 @@ class ConfigLoader:
     @classmethod
     def get_api_key(cls, platform: str) -> str:
         """
-        获取指定平台的 API key
-
-        Args:
-            platform: 平台名称，如 'nvidia', 'zhipu', 'aliyun'
-
-        Returns:
-            API key 字符串
-
-        Raises:
-            ValueError: 如果未找到 API key
+        获取指定平台的 API key（委托给 platform_registry 统一实现）
         """
-        from .platform_config import PlatformConfigLoader
-
-        platform = platform.lower()
-
-        config = PlatformConfigLoader.get_config(platform)
-        if not config:
-            available = ', '.join(PlatformConfigLoader.get_available_platforms())
-            raise ValueError(
-                f"未知平台: {platform}\n"
-                f"可用平台: {available}"
-            )
-
-        env_var_name = config.api_key_env
-        if not env_var_name:
-            raise ValueError(
-                f"平台 {platform} 未配置 API Key 环境变量"
-            )
-
-        key = os.getenv(env_var_name)
-
-        if not key:
-            raise ValueError(
-                f"❌ 缺少 {platform} 的 API Key\n"
-                f"请设置环境变量: {env_var_name}\n"
-                f"或在 .env.local 文件中配置\n"
-                f"\n"
-                f"配置方法：\n"
-                f"  1. 复制 .env.example 为 .env.local\n"
-                f"  2. 编辑 .env.local 填入真实 {env_var_name}\n"
-                f"  3. 或直接在系统环境变量中设置"
-            )
-
-        return key
+        from .platform_registry import get_api_key as _registry_get_api_key
+        return _registry_get_api_key(platform)
 
     @classmethod
     def get_platform_config(cls, platform: str) -> Dict[str, Any]:
         """
         获取平台的完整配置（包括 base_url 等）
-
-        Args:
-            platform: 平台名称
-
-        Returns:
-            配置字典，包含 api_key, base_url 等
         """
         from .platform_registry import PlatformRegistry
 
-        registry = PlatformRegistry()
-        platform_info = registry.get_platform_info(platform)
-
-        if not platform_info:
+        config_entry = PlatformRegistry().get(platform)
+        if not config_entry:
             raise ValueError(f"未知平台: {platform}")
 
-        config = {
+        return {
             'api_key': cls.get_api_key(platform),
-            'base_url': platform_info.get('default_base_url'),
-            'name': platform_info.get('name'),
-            'display_name': platform_info.get('display_name'),
+            'base_url': config_entry.default_base_url,
+            'name': config_entry.name,
+            'display_name': config_entry.display_name,
         }
-
-        return config
 
     @classmethod
     def validate_all(cls) -> Dict[str, bool]:
         """
         验证所有已启用平台的 API key 配置
-
-        Returns:
-            {平台: 是否配置成功} 的字典
         """
-        from .platform_config import PlatformConfigLoader
-
         configs = PlatformConfigLoader.load_all()
         results = {}
-
         for name, config in configs.items():
             if not config.is_available:
                 continue
-
             try:
                 cls.get_api_key(name)
                 results[name] = True
             except ValueError:
                 results[name] = False
-
         return results
 
 
 def load_config() -> ConfigLoader:
-    """
-    快速加载配置（单例模式）
-    在应用启动时调用一次即可
-    """
+    """快速加载配置（单例模式）"""
     ConfigLoader.load_env()
     return ConfigLoader
-
-
-# ============================================
-# 平台配置集成（使用 PlatformConfigLoader）
-# ============================================
-
-def get_platform_scraper_config(platform: str):
-    """获取爬虫配置（便捷函数）
-
-    Args:
-        platform: 平台名称（如 'nvidia', 'zhipu'）
-
-    Returns:
-        ScraperConfig 实例或 None
-    """
-    from .platform_config import PlatformConfigLoader
-    return PlatformConfigLoader.get_scraper_config(platform)
-
-
-def get_platform_client_config(platform: str):
-    """获取客户端配置（便捷函数）
-
-    Args:
-        platform: 平台名称（如 'nvidia', 'zhipu'）
-
-    Returns:
-        ClientConfig 实例或 None
-    """
-    from .platform_config import PlatformConfigLoader
-    return PlatformConfigLoader.get_client_config(platform)
-
-
-def get_available_platforms() -> List[str]:
-    """获取所有可用平台名称列表"""
-    from .platform_config import PlatformConfigLoader
-    return PlatformConfigLoader.get_available_platforms()
 
 
 # ============================================
 # 便捷函数（向后兼容）
 # ============================================
 
+def get_platform_scraper_config(platform: str):
+    """获取爬虫配置（便捷函数）"""
+    return PlatformConfigLoader.get_scraper_config(platform)
+
+
+def get_platform_client_config(platform: str):
+    """获取客户端配置（便捷函数）"""
+    return PlatformConfigLoader.get_client_config(platform)
+
+
+def get_available_platforms() -> List[str]:
+    """获取所有可用平台名称列表"""
+    return PlatformConfigLoader.get_available_platforms()
+
+
 def get_api_key(platform: str) -> str:
-    """快速获取 API key"""
-    return ConfigLoader.get_api_key(platform)
+    """快速获取 API key（委托给 platform_registry 统一实现）"""
+    from .platform_registry import get_api_key as _registry_get_api_key
+    return _registry_get_api_key(platform)
 
 
 def require_api_key(platform: str) -> str:
     """强制要求 API key（用于需要认证的功能）"""
     return ConfigLoader.get_api_key(platform)
-
-
-__all__ = [
-    'ConfigLoader',
-    'load_config',
-    'get_api_key',
-    'require_api_key',
-    'get_platform_scraper_config',
-    'get_platform_client_config',
-    'get_available_platforms',
-]

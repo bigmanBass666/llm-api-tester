@@ -11,16 +11,11 @@
   python scripts/batch_test.py -p nvidia --scrape-only -n 20
 """
 
-import sys
-import os
 import asyncio
 import argparse
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from src import registry
 from src.config_loader import ConfigLoader
-
 
 def _get_platform_choices():
     ConfigLoader.load_env(".env.local")
@@ -30,7 +25,6 @@ def _get_platform_choices():
     except Exception:
         pass
     return [p.name for p in registry.list_available_platforms()]
-
 
 def main():
     platform_choices = _get_platform_choices()
@@ -92,10 +86,20 @@ def main():
                      help="禁用非文字模型过滤")
     adv.add_argument("--quiet", "-q", action="store_true",
                      help="安静模式，减少输出")
+    adv.add_argument("--no-log", action="store_true",
+                     help="禁用结构化日志系统（仅 NVIDIA legacy 模式）")
     adv.add_argument("--probe-hosted", action="store_true",
                      help="探测哪些模型真正有托管端点（发送最小 chat 请求）")
     adv.add_argument("--favorites", action="store_true",
                      help="仅测试收藏模型（需在 platforms.yaml 中配置）")
+
+    reasoning = parser.add_argument_group("推理模型选项（仅 NVIDIA）")
+    reasoning.add_argument("--reasoning-model", action="append",
+                          help="手动指定推理模型 ID（可多次使用），将使用推理模式测试")
+    reasoning.add_argument("--force-normal", action="store_true",
+                          help="强制所有模型使用普通模式测试（禁用自动推理模型检测）")
+    reasoning.add_argument("--reasoning-timeout", type=int, default=180,
+                          help="推理模型超时时间(秒) (默认: 180)")
 
     args = parser.parse_args()
 
@@ -148,13 +152,17 @@ def main():
             quiet=args.quiet,
             usecase=args.usecase,
             favorites=args.favorites,
+            use_logger=not args.no_log,
+            reasoning_timeout=args.reasoning_timeout,
+            force_reasoning=bool(args.reasoning_model),
+            force_normal=args.force_normal,
+            manual_reasoning_models=args.reasoning_model,
         ))
 
     else:
         print("未指定参数，运行默认模式: NVIDIA 批量测试")
         print("   使用 -h 查看完整用法\n")
         asyncio.run(batch.run(platform="nvidia", number=20, concurrency=5))
-
 
 async def _probe_hosted_models(limit: int):
     from platforms.nvidia.model_prober import NvidiaModelProber
@@ -186,7 +194,6 @@ async def _probe_hosted_models(limit: int):
 
     hosted = sum(1 for v in results.values() if v[0])
     print(f"\n📊 结果: {hosted}/{len(results)} 个模型有可用的 chat 端点")
-
 
 if __name__ == "__main__":
     main()

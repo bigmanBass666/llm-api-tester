@@ -2,17 +2,13 @@
 单元测试：验证 speed_tester 框架的核心逻辑
 """
 
-import sys
-import os
 import json
 import tempfile
 from pathlib import Path
 
 # 添加项目根目录到路径
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from crawler.speed_tester import SpeedTestResult, BaseSpeedTestSuite
-
 
 def test_speed_test_result():
     """测试 SpeedTestResult 数据类"""
@@ -53,7 +49,6 @@ def test_speed_test_result():
     print("   ✅ 成功/失败判断正确")
     print("   ✅ 流式支持检测正确")
     print("   ✅ 排序值计算正确")
-
 
 def test_summary_generation():
     """测试摘要统计逻辑"""
@@ -104,7 +99,6 @@ def test_summary_generation():
     print("   ✅ 并发数分析正确")
     print("   ✅ 性价比排名正确")
 
-
 def test_markdown_export():
     """测试 Markdown 报告生成"""
     print("\n🧪 测试 Markdown 报告导出...")
@@ -142,7 +136,6 @@ def test_markdown_export():
     print(f"   ✅ Markdown 报告生成成功: {md_file}")
     print(f"   ✅ 报告包含分析内容 (大小: {len(content)} bytes)")
 
-
 def test_json_export():
     """测试 JSON 原始数据导出"""
     print("\n🧪 测试 JSON 原始数据导出...")
@@ -175,7 +168,6 @@ def test_json_export():
 
     print(f"   ✅ JSON 原始数据导出成功: {json_file}")
     print(f"   ✅ 数据结构正确")
-
 
 if __name__ == "__main__":
     print("="*60)

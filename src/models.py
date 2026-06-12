@@ -4,7 +4,7 @@
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 from enum import Enum
 
 
@@ -42,8 +42,38 @@ class ChatMessage:
 
 
 @dataclass
+class ScrapedMetadata:
+    """爬虫采集的元数据 — 从 ModelInfo/TestResult 分离出来的独立关注点
+
+    Phase 1: 新增数据结构
+    Phase 4b: 将成为 ModelInfo 和 TestResult 中爬虫元数据的唯一载体
+    """
+
+    call_volume: str = ""
+    published_at: Optional[str] = None
+    deprecation_info: Optional[str] = None
+    endpoint_type: str = "unknown"
+    inference_provider: Optional[str] = None
+    created_at: Optional[int] = None
+    api_owned_by: Optional[str] = None
+    is_hosted: Optional[bool] = None
+
+    def to_dict(self) -> dict:
+        return {
+            "call_volume": self.call_volume,
+            "published_at": self.published_at,
+            "deprecation_info": self.deprecation_info,
+            "endpoint_type": self.endpoint_type,
+            "inference_provider": self.inference_provider,
+            "created_at": self.created_at,
+            "api_owned_by": self.api_owned_by,
+            "is_hosted": self.is_hosted,
+        }
+
+
+@dataclass
 class ModelInfo:
-    """全域统一的模型信息 - 合并了所有版本的字段"""
+    """全域统一的模型信息 — 身份字段 + 爬虫元数据"""
 
     id: str
     name: str
@@ -58,39 +88,9 @@ class ModelInfo:
     max_tokens: int = 4096
     context_window: int = 128000
     description: str = ""
-    test_status: str = "pending"
-    response_time: float = 0.0
-    error_message: str = ""
-    token_usage: int = 0
-    test_date: Optional[str] = None
-    reasoning_effort: Optional[str] = None
     tags: Optional[List[str]] = None
     href: str = ""
-    call_volume: str = ""
-    published_at: Optional[str] = None
-    deprecation_info: Optional[str] = None
-    endpoint_type: str = "unknown"
-    inference_provider: Optional[str] = None
-    created_at: Optional[int] = None       # /v1/models API Unix 时间戳
-    api_owned_by: Optional[str] = None     # /v1/models API owned_by
-    is_hosted: Optional[bool] = None       # True=chat端点可用, False=不可用, None=未探测
-
-    # 注意: 以下字段与 TestResult 共享，修改时需同步更新两处
-    # 共享字段: model_type, rank, is_downloadable, is_free_endpoint, tags,
-    #           call_volume, published_at, deprecation_info, endpoint_type,
-    #           inference_provider, created_at, api_owned_by, is_hosted
-
-    @property
-    def status_icon(self) -> str:
-        icons = {
-            "pending": "\u23f3", "testing": "\U0001f504",
-            "success": "\u2705", "failed": "\u274c", "timeout": "\u23f0",
-        }
-        return icons.get(self.test_status, "\u2753")
-
-    @property
-    def is_callable(self) -> bool:
-        return self.test_status == "success"
+    scraped: Optional[ScrapedMetadata] = None
 
     @property
     def is_text_model(self) -> bool:
@@ -102,22 +102,11 @@ class ModelInfo:
             "name": self.name,
             "vendor": self.vendor,
             "rank": self.rank,
-            "test_status": self.test_status,
-            "response_time": round(self.response_time, 2),
             "is_downloadable": self.is_downloadable,
             "is_free_endpoint": self.is_free_endpoint,
             "tags": self.tags or [],
             "category": self.category,
             "is_text_model": self.is_text_model,
-            "is_callable": self.is_callable,
-            "call_volume": self.call_volume,
-            "published_at": self.published_at,
-            "deprecation_info": self.deprecation_info,
-            "endpoint_type": self.endpoint_type,
-            "inference_provider": self.inference_provider,
-            "created_at": self.created_at,
-            "api_owned_by": self.api_owned_by,
-            "error": self.error_message[:200] if self.error_message else "",
         }
 
 
@@ -136,16 +125,25 @@ class TestResult:
     tags: Optional[List[str]] = None
     reasoning_content: str = ""
     token_usage: int = 0
-    call_volume: str = ""
-    published_at: Optional[str] = None
-    deprecation_info: Optional[str] = None
-    endpoint_type: str = "unknown"
-    inference_provider: Optional[str] = None
-    created_at: Optional[int] = None
-    api_owned_by: Optional[str] = None
-    is_hosted: Optional[bool] = None
+    scraped: Optional[ScrapedMetadata] = None
+
+    @classmethod
+    def from_model_info(cls, model: 'ModelInfo', **test_fields) -> 'TestResult':
+        """从 ModelInfo + 测试字段构造 TestResult（替代 _model_to_result_kwargs）"""
+        scraped = model.scraped
+        return cls(
+            model_id=model.id,
+            model_type=model.model_type.value,
+            rank=model.rank,
+            is_downloadable=model.is_downloadable,
+            is_free_endpoint=model.is_free_endpoint,
+            tags=model.tags,
+            scraped=scraped,
+            **test_fields,
+        )
 
     def to_dict(self) -> dict:
+        s = self.scraped or ScrapedMetadata()
         return {
             "model_id": self.model_id,
             "model_type": self.model_type,
@@ -158,13 +156,14 @@ class TestResult:
             "is_free_endpoint": self.is_free_endpoint,
             "tags": self.tags or [],
             "token_usage": self.token_usage,
-            "call_volume": self.call_volume,
-            "published_at": self.published_at,
-            "deprecation_info": self.deprecation_info,
-            "endpoint_type": self.endpoint_type,
-            "inference_provider": self.inference_provider,
-            "created_at": self.created_at,
-            "api_owned_by": self.api_owned_by,
+            "call_volume": s.call_volume,
+            "published_at": s.published_at,
+            "deprecation_info": s.deprecation_info,
+            "endpoint_type": s.endpoint_type,
+            "inference_provider": s.inference_provider,
+            "created_at": s.created_at,
+            "api_owned_by": s.api_owned_by,
+            "is_hosted": s.is_hosted,
         }
 
 

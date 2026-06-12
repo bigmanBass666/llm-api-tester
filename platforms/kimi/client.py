@@ -3,13 +3,12 @@ Kimi API 客户端
 使用 Anthropic Messages API 协议
 """
 
-import os
-import yaml
-from pathlib import Path
 from typing import List
+
 from platforms.common.openai_compatible_client import KimiClient as BaseKimiClient
 from src.models import ModelInfo
 from src.platform_registry import register_platform
+from src.platform_config import PlatformConfigLoader
 
 
 class KimiClientWithConfig(BaseKimiClient):
@@ -24,15 +23,9 @@ class KimiClientWithConfig(BaseKimiClient):
         if len(api_models) > 1:
             return api_models
 
-        # 否则从配置文件读取
+        # 否则从 PlatformConfigLoader 读取（统一配置入口）
         try:
-            config_path = Path(__file__).parent.parent.parent / 'configs' / 'platforms.yaml'
-            with open(config_path, 'r', encoding='utf-8') as f:
-                config = yaml.safe_load(f)
-
-            kimi_config = config.get('platforms', {}).get('kimi', {})
-            models_config = kimi_config.get('models', {}).get('free', [])
-
+            models_config = PlatformConfigLoader.get_platform_models("kimi")
             if models_config:
                 return [
                     ModelInfo(

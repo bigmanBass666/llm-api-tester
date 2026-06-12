@@ -8,40 +8,49 @@ import os
 from datetime import datetime
 from typing import List, Optional
 
-import sys
-import os as os_module
-sys.path.insert(0, os_module.path.dirname(os_module.path.dirname(os_module.path.abspath(__file__))))
 from src.models import TestResult, TestReport
+
+# ── 模块级常量 ──────────────────────────────────────
+
+TAG_ICONS = {
+    "downloadable": "📥",
+    "free": "🔓",
+    "flash": "⚡",
+    "thinking": "🤔",
+    "partner": "🤝",
+}
+
+TAG_LEGEND = """
+| 图标 | 标签名 | 含义 |
+|------|--------|------|
+| 📥 | downloadable | 模型权重可下载 |
+| 🔓 | free | 免费API端点 |
+| ⚡ | flash | 快速模型 |
+| 🤔 | thinking | 推理模型 |
+| 🤝 | partner | 合作伙伴端点（非免费） |
+| ⚠️ | 弃用 | 模型即将弃用 |
+| ⏭️ | skipped | 测试已跳过 |
+"""
+
+
+def _format_tags(tags: List[str]) -> str:
+    """格式化标签为图标字符串"""
+    if not tags:
+        return '-'
+    return ' '.join(TAG_ICONS.get(t, t) for t in tags)
+
+
+def _get_scraped_field(result: 'TestResult', field: str):
+    """从 TestResult 获取爬虫元数据字段"""
+    if result.scraped is not None:
+        val = getattr(result.scraped, field, None)
+        if val is not None and val != "":
+            return val
+    return getattr(result, field, None)
 
 
 class MarkdownFormatter:
     """Markdown 报告格式化器"""
-
-    TAG_ICONS = {
-        'downloadable': '📥',
-        'free': '🔓',
-        'flash': '⚡',
-        'thinking': '🤔',
-        'image_generation': '🎨',
-        'partner': '🤝',
-    }
-
-    def _format_endpoint_type(self, endpoint_type: str) -> str:
-        if endpoint_type == 'free':
-            return '🔓'
-        elif endpoint_type == 'partner':
-            return '🤝'
-        return endpoint_type
-
-    def _format_deprecation(self, deprecation_info: Optional[str]) -> str:
-        if deprecation_info:
-            return f'⚠️ {deprecation_info}'
-        return ''
-
-    def _format_model_id_with_deprecation(self, model_id: str, deprecation_info: Optional[str]) -> str:
-        if deprecation_info:
-            return f'{model_id} ⚠️'
-        return model_id
 
     def format(self, report: TestReport) -> str:
         """生成 Markdown 格式报告"""
@@ -80,11 +89,14 @@ class MarkdownFormatter:
         )
 
         for i, r in enumerate(successful[:10], 1):
-            cv = self._format_call_volume(r.call_volume)
-            pub = self._format_published_at(r.published_at)
-            ep = self._format_endpoint_type(r.endpoint_type)
-            model_id = self._format_model_id_with_deprecation(r.model_id, r.deprecation_info)
-            md += f"| {i} | {model_id} | {ep} | {cv} | {pub} | {r.response_time:.2f}s | ✅ |\n"
+            cv = _get_scraped_field(r, 'call_volume') or ""
+            cv = cv.split(" ")[0] if cv and "API calls" in cv else cv or "-"
+            pub = _get_scraped_field(r, 'published_at') or "-"
+            ep = _get_scraped_field(r, 'endpoint_type') or "unknown"
+            ep = '🔓' if ep == 'free' else '🤝' if ep == 'partner' else ep
+            depr = _get_scraped_field(r, 'deprecation_info') or ""
+            model_id_str = f'{r.model_id} ⚠️' if depr else r.model_id
+            md += f"| {i} | {model_id_str} | {ep} | {cv} | {pub} | {r.response_time:.2f}s | ✅ |\n"
 
         md += """
 ---
@@ -99,12 +111,15 @@ class MarkdownFormatter:
         image_results = [r for r in sorted_results if r.model_type in ('image_generation', 'image_editing')]
 
         for r in text_results:
-            tags_str = self._format_tags(r.tags)
-            cv = self._format_call_volume(r.call_volume)
-            pub = self._format_published_at(r.published_at)
-            ep = self._format_endpoint_type(r.endpoint_type)
-            model_id = self._format_model_id_with_deprecation(r.model_id, r.deprecation_info)
-            depr = self._format_deprecation(r.deprecation_info)
+            tags_str = _format_tags(r.tags)
+            cv = _get_scraped_field(r, 'call_volume') or ""
+            cv = cv.split(" ")[0] if cv and "API calls" in cv else cv or "-"
+            pub = _get_scraped_field(r, 'published_at') or "-"
+            ep = _get_scraped_field(r, 'endpoint_type') or "unknown"
+            ep = '🔓' if ep == 'free' else '🤝' if ep == 'partner' else ep
+            depr = _get_scraped_field(r, 'deprecation_info') or ""
+            depr_str = f'⚠️ {depr}' if depr else ""
+
             if r.status == 'success':
                 status_icon = '✅'
                 detail = '成功'
@@ -118,9 +133,11 @@ class MarkdownFormatter:
                 status_icon = '❌'
                 detail = r.error_message[:40] if r.error_message else r.status
 
-            if depr:
-                detail = f"{detail} ({depr})"
-            md += f"| {r.rank} | {model_id} | {ep} | {cv} | {pub} | {tags_str} | {r.response_time:.2f}s | {status_icon} {detail} |\n"
+            if depr_str:
+                detail = f"{detail} ({depr_str})"
+
+            model_id_str = f'{r.model_id} ⚠️' if depr else r.model_id
+            md += f"| {r.rank} | {model_id_str} | {ep} | {cv} | {pub} | {tags_str} | {r.response_time:.2f}s | {status_icon} {detail} |\n"
 
         if image_results:
             md += """
@@ -132,12 +149,15 @@ class MarkdownFormatter:
 |----------|--------|------|--------|----------|------|----------|----------|----------|
 """
             for r in image_results:
-                tags_str = self._format_tags(r.tags)
-                cv = self._format_call_volume(r.call_volume)
-                pub = self._format_published_at(r.published_at)
-                ep = self._format_endpoint_type(r.endpoint_type)
-                model_id = self._format_model_id_with_deprecation(r.model_id, r.deprecation_info)
-                depr = self._format_deprecation(r.deprecation_info)
+                tags_str = _format_tags(r.tags)
+                cv = _get_scraped_field(r, 'call_volume') or ""
+                cv = cv.split(" ")[0] if cv and "API calls" in cv else cv or "-"
+                pub = _get_scraped_field(r, 'published_at') or "-"
+                ep = _get_scraped_field(r, 'endpoint_type') or "unknown"
+                ep = '🔓' if ep == 'free' else '🤝' if ep == 'partner' else ep
+                depr = _get_scraped_field(r, 'deprecation_info') or ""
+                depr_str = f'⚠️ {depr}' if depr else ""
+
                 if r.status == 'success':
                     status_icon = '✅'
                     detail = '成功'
@@ -155,24 +175,17 @@ class MarkdownFormatter:
                     detail = r.error_message[:40] if r.error_message else r.status
                     img_info = '-'
 
-                if depr:
-                    detail = f"{detail} ({depr})"
-                md += f"| {r.rank} | {model_id} | {ep} | {cv} | {pub} | {tags_str} | {r.response_time:.2f}s | {img_info} | {status_icon} {detail} |\n"
+                if depr_str:
+                    detail = f"{detail} ({depr_str})"
+
+                model_id_str = f'{r.model_id} ⚠️' if depr else r.model_id
+                md += f"| {r.rank} | {model_id_str} | {ep} | {cv} | {pub} | {tags_str} | {r.response_time:.2f}s | {img_info} | {status_icon} {detail} |\n"
 
         md += f"""
 ---
 
 ## 📋 标签说明
-
-| 图标 | 标签名 | 含义 |
-|------|--------|------|
-| 📥 | downloadable | 模型权重可下载 |
-| 🔓 | free | 免费API端点 |
-| ⚡ | flash | 快速模型 |
-| 🤔 | thinking | 推理模型 |
-| 🤝 | partner | 合作伙伴端点（非免费） |
-| ⚠️ | 弃用 | 模型即将弃用 |
-| ⏭️ | skipped | 测试已跳过 |
+{TAG_LEGEND}
 
 ---
 
@@ -180,28 +193,6 @@ class MarkdownFormatter:
 """
 
         return md
-
-    def _format_tags(self, tags: List[str]) -> str:
-        """格式化标签为图标字符串"""
-        if not tags:
-            return '-'
-        icons = [self.TAG_ICONS.get(t, t) for t in tags]
-        return ' '.join(icons)
-
-    def _format_call_volume(self, call_volume: str) -> str:
-        """格式化调用量显示"""
-        if not call_volume:
-            return '-'
-        if "API calls" in call_volume:
-            parts = call_volume.split(" ")
-            return parts[0] if parts else call_volume
-        return call_volume
-
-    def _format_published_at(self, published_at: Optional[str]) -> str:
-        """格式化发布时间显示"""
-        if not published_at:
-            return '-'
-        return published_at
 
     def save(self, content: str, filepath: str):
         """保存 Markdown 文件"""

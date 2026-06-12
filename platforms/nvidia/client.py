@@ -9,28 +9,25 @@ from typing import Optional, List, Iterator
 import httpx
 from openai import OpenAI
 
-import sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from src.models import ModelInfo, ChatMessage
-from platforms.base.base_client import BasePlatformClient
+from src.model_classifier import ModelClassifier
+from platforms.common.openai_compatible_client import OpenAICompatibleClient
 from src.platform_registry import register_platform
 from src.platform_config import PlatformConfigLoader
 
-
-class NvidiaClient(BasePlatformClient):
+class NvidiaClient(OpenAICompatibleClient):
     """NVIDIA NIM API 客户端"""
 
     platform_name = "nvidia"
     platform_display_name = "NVIDIA NIM"
 
     def __init__(self, api_key: str = None, base_url: Optional[str] = None, **kwargs):
-        self._client: Optional[OpenAI] = None
-
         self._load_config()
 
         super().__init__(
             api_key=api_key,
             base_url=base_url or self._platform_base_url,
+            platform_name="nvidia",
             **kwargs
         )
 
@@ -43,6 +40,7 @@ class NvidiaClient(BasePlatformClient):
             raise ValueError(f"未找到 {self.platform_name} 平台的配置，请检查 configs/platforms.yaml")
 
         self._platform_base_url = config.base_url or "https://integrate.api.nvidia.com/v1"
+        self._classifier = ModelClassifier(self.platform_name)
 
     @property
     def client(self) -> OpenAI:
@@ -54,28 +52,7 @@ class NvidiaClient(BasePlatformClient):
             )
         return self._client
 
-    def chat(
-        self,
-        model: str,
-        messages: List[ChatMessage],
-        **kwargs
-    ) -> str:
-        openai_messages = [
-            {"role": m.role, "content": m.content}
-            for m in messages
-        ]
-
-        completion = self.client.chat.completions.create(
-            model=model,
-            messages=openai_messages,
-            **kwargs
-        )
-
-        response = completion.choices[0].message.content
-        if response is None and hasattr(completion.choices[0].message, 'reasoning_content'):
-            response = completion.choices[0].message.reasoning_content
-
-        return response or ""
+    # chat() 继承自 OpenAICompatibleClient，无需重写
 
     def chat_stream(
         self,
@@ -207,9 +184,13 @@ class NvidiaClient(BasePlatformClient):
                           created: int = None, tags: list = None) -> 'ModelInfo':
         """统一的 ModelInfo 构建逻辑"""
         from platforms.common.utils import parse_model_id
-        from src.models import ModelType
+        from src.models import ScrapedMetadata
         id_vendor, short_name = parse_model_id(model_id)
-        model_type = self._classify_by_id(model_id)
+        model_type = self._classifier.classify(model_id)
+
+        scraped = None
+        if created is not None or owned_by is not None:
+            scraped = ScrapedMetadata(created_at=created, api_owned_by=owned_by)
 
         return ModelInfo(
             id=model_id,
@@ -220,29 +201,9 @@ class NvidiaClient(BasePlatformClient):
             max_tokens=4096,
             context_window=128000,
             description="",
-            created_at=created,
-            api_owned_by=owned_by,
             tags=tags or None,
+            scraped=scraped,
         )
-
-    @classmethod
-    def _classify_by_id(cls, model_id: str) -> 'ModelType':
-        from src.models import ModelType
-        from src.platform_config import PlatformConfigLoader
-
-        scraper_config = PlatformConfigLoader.get_scraper_config("nvidia")
-        mid = model_id.lower()
-
-        for kw in scraper_config.image_model_keywords:
-            if kw in mid:
-                return ModelType.IMAGE_GENERATION
-        for kw in scraper_config.multimodal_keywords:
-            if kw in mid:
-                return ModelType.MULTIMODAL
-        for kw in scraper_config.speech_keywords:
-            if kw in mid:
-                return ModelType.SPEECH
-        return ModelType.TEXT
 
     def _raw_model_to_info(self, raw: dict) -> 'ModelInfo':
         model_id = raw.get("id", "")
@@ -275,7 +236,6 @@ class NvidiaClient(BasePlatformClient):
         if self._client:
             self._client.close()
             self._client = None
-
 
 # 注册平台（使用装饰器）
 NvidiaClient = register_platform(

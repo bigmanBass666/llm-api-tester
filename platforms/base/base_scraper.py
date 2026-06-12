@@ -5,12 +5,8 @@
 
 from abc import ABC, abstractmethod
 from typing import List
-import sys
-import os
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from src.models import ModelInfo
-
 
 class BaseScraper(ABC):
     """爬虫基类，所有平台爬虫需继承此类"""

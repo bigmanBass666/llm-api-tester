@@ -8,12 +8,8 @@ from typing import List, Optional, Dict, Callable
 import asyncio
 import httpx
 from openai import OpenAI
-import sys
-import os
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from src.models import ModelInfo, TestResult, ModelType
-
 
 class BaseTester:
     """测试器基类，所有平台测试器需继承此类
@@ -43,15 +39,15 @@ class BaseTester:
             "is_downloadable": model.is_downloadable,
             "is_free_endpoint": model.is_free_endpoint,
             "tags": model.tags,
-            "call_volume": model.call_volume,
-            "published_at": model.published_at,
-            "deprecation_info": model.deprecation_info,
-            "endpoint_type": model.endpoint_type,
-            "inference_provider": model.inference_provider,
-            "created_at": model.created_at,
-            "api_owned_by": model.api_owned_by,
-            "is_hosted": model.is_hosted,
+            "scraped": model.scraped,
         }
+
+    def _classify_error(self, error: Exception) -> str:
+        """根据异常类型判定测试状态（timeout / failed）"""
+        error_msg = str(error)
+        if "Timeout" in error_msg or "timed out" in error_msg.lower():
+            return "timeout"
+        return "failed"
 
     async def test_single(self, model: ModelInfo, timeout: int = 60) -> TestResult:
         if model.model_type in self.UNSUPPORTED_MODEL_TYPES:
@@ -104,18 +100,11 @@ class BaseTester:
 
         except Exception as e:
             elapsed = time.time() - start_time
-            error_msg = str(e)
-
-            if "Timeout" in error_msg or "timed out" in error_msg.lower():
-                status = "timeout"
-            else:
-                status = "failed"
-
             return TestResult(
                 **self._model_to_result_kwargs(model),
-                status=status,
+                status=self._classify_error(e),
                 response_time=round(elapsed, 2),
-                error_message=error_msg[:200],
+                error_message=str(e)[:200],
             )
 
     async def test_image_model(self, model: ModelInfo, timeout: int = 60) -> TestResult:
@@ -164,18 +153,11 @@ class BaseTester:
 
         except Exception as e:
             elapsed = time.time() - start_time
-            error_msg = str(e)
-
-            if "Timeout" in error_msg or "timed out" in error_msg.lower():
-                status = "timeout"
-            else:
-                status = "failed"
-
             return TestResult(
                 **self._model_to_result_kwargs(model),
-                status=status,
+                status=self._classify_error(e),
                 response_time=round(elapsed, 2),
-                error_message=error_msg[:200],
+                error_message=str(e)[:200],
             )
 
     async def batch_test(self, models: List[ModelInfo],

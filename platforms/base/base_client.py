@@ -1,11 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import AsyncIterator, List
-import sys
-import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from src.models import ModelInfo, ChatMessage
-
 
 class BasePlatformClient(ABC):
     """平台客户端基类 - 所有平台客户端的统一接口
