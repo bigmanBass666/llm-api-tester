@@ -42,7 +42,7 @@ tests/ (pytest), examples/, scripts/batch_test.py
 # Commands
 
 ```bash
-python test_config_quick.py          # 验证配置
+git commit -m "<type>: <中文描述>"  # post-commit hook 自动 push，无需手动执行
+
 pytest tests/test_platform_config.py -v  # 测试
-python crawler/main.py -n 10         # 运行
 ```
